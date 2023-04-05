@@ -6,6 +6,11 @@
 #include <cmath>
 #include <fstream>
 #include <time.h>
+#include <boost/thread/thread.hpp>
+#include <pthread.h>
+#include <thread>
+#include <chrono>
+#include <sys/time.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.hpp>
@@ -28,6 +33,7 @@
 
 using namespace cv;
 using namespace std;
+using namespace std::chrono_literals;
 
 namespace LaneDetect {
 
@@ -46,7 +52,6 @@ public:
 	int distance_ = 0;
 	float est_dist_ = 0.0f;
 	float est_pose_ = 0.0f;
-	scale_truck_control_ros2::msg::CmdData lane_coef_;
 	Mat frame_;
 	float rotation_angle_ = 0.0f;
 	float lateral_offset_ = 0.0f;
@@ -61,9 +66,6 @@ public:
 	float log_e1_ = 0.0f;
 	float log_el_ = 0.0f;
 	float vel_ = 0.0f;
-
-	/***** fault signal *****/
-	bool beta_ = false, gamma_ = false;
 
 private:
 	void LoadParams(void);
@@ -92,12 +94,19 @@ private:
 
         bool viewImage_;
         int waitKeyDelay_;
+	bool droi_ready_ = false;
+        bool isNodeRunning_ = true;
+        bool controlDone_ = false;
+        scale_truck_control_ros2::msg::CmdData lane_coef_;
 
 	//image
     	bool imageStatus_ = false;
 	std_msgs::msg::Header imageHeader_;
         cv::Mat camImageCopy_;
 	float AngleDegree_;
+   
+        std::thread lanedetect_Thread;
+        void lanedetectInThread();
 
 	/********** Camera calibration **********/
 	Mat map1_, map2_, f_map1_, f_map2_;

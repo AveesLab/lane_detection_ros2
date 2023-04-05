@@ -10,12 +10,12 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(scale_truck_control_ros2 REQUIRED)
-find_package(lane_detection_ros2 REQUIRED)
 
 set(PROJECT_SOURCES
   src/main.cpp
@@ -27,10 +27,10 @@ set(PROJECT_SOURCES
 set(PROJECT_SOURCES_DEPENDENCIES
   rclcpp
   std_msgs
+  sensor_msgs
   ament_index_cpp
   cv_bridge
   scale_truck_control_ros2
-  lane_detection_ros2
 )
 
 include_directories(

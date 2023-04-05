@@ -162,14 +162,57 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("params/b/e", b_[4], 1.6722);
 
   LoadParams();
+  
+  lanedetect_Thread = std::thread(&LaneDetector::lanedetectInThread, this);
 }
 
 LaneDetector::~LaneDetector(void) 
 {
+  isNodeRunning_ = false;
+
+  scale_truck_control_ros2::msg::CmdData xav;
+  xav.coef = lane_coef_.coef;
+  xav.cur_angle = AngleDegree_;
+
+  XavPublisher_->publish(xav);
+  lanedetect_Thread.join();
+
   clear_release();
   RCLCPP_INFO(this->get_logger(), "Stop.");
 }
 
+void LaneDetector::lanedetectInThread()
+{
+  const auto wait_duration = std::chrono::milliseconds(2000);
+  while(!imageStatus_) {
+    printf("Waiting for image.\n");
+    if(!isNodeRunning_) {
+      return;
+    }
+    std::this_thread::sleep_for(wait_duration);
+  }
+
+  scale_truck_control_ros2::msg::CmdData xav;
+
+  while(!controlDone_ && rclcpp::ok()) 
+  {
+    if(imageStatus_ && droi_ready_) {  
+      AngleDegree_ = display_img(camImageCopy_, waitKeyDelay_, viewImage_);
+      droi_ready_ = false;
+     
+      xav.coef = lane_coef_.coef;
+      xav.cur_angle = AngleDegree_;
+      XavPublisher_->publish(xav);
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    if(!isNodeRunning_) {
+      controlDone_ = true;
+      rclcpp::shutdown();
+    }
+  }
+
+}
 void LaneDetector::LoadParams(void)
 {
   this->get_parameter_or("LaneDetector/eL_height",eL_height_, 1.0f);  
@@ -182,7 +225,10 @@ void LaneDetector::LoadParams(void)
 void LaneDetector::XavSubCallback(const scale_truck_control_ros2::msg::CmdData::SharedPtr msg)
 {
   float cur_vel_ = msg->cur_vel;
+  distance_ = msg->cur_dist;
+
   get_steer_coef(cur_vel_);
+  droi_ready_ = true;
 }
 
 void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg)
@@ -198,8 +244,6 @@ void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg
     imageHeader_ = msg->header;
     camImageCopy_ = cam_image->image.clone();
     imageStatus_ = true;
-
-    AngleDegree_ = display_img(camImageCopy_, waitKeyDelay_, viewImage_);
   }
 }
 
@@ -741,20 +785,21 @@ void LaneDetector::controlSteer() {
   Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_);
   float car_position = width_ / 2;
   float l1 = 0, l2 = 0;
+  
   lane_coef_.coef.resize(3);
-
   if (!l_fit.empty() && !r_fit.empty()) {
-    lane_coef_.coef[1].a = r_fit.at<float>(2, 0);
-    lane_coef_.coef[1].b = r_fit.at<float>(1, 0);
-    lane_coef_.coef[1].c = r_fit.at<float>(0, 0);
-
     lane_coef_.coef[0].a = l_fit.at<float>(2, 0);
     lane_coef_.coef[0].b = l_fit.at<float>(1, 0);
     lane_coef_.coef[0].c = l_fit.at<float>(0, 0);
 
+    lane_coef_.coef[1].a = r_fit.at<float>(2, 0);
+    lane_coef_.coef[1].b = r_fit.at<float>(1, 0);
+    lane_coef_.coef[1].c = r_fit.at<float>(0, 0);
+
     lane_coef_.coef[2].a = c_fit.at<float>(2, 0);
     lane_coef_.coef[2].b = c_fit.at<float>(1, 0);
     lane_coef_.coef[2].c = c_fit.at<float>(0, 0);
+    
 
     float i = ((float)height_) * eL_height_;  
     float j = ((float)height_) * trust_height_;
@@ -767,6 +812,7 @@ void LaneDetector::controlSteer() {
     e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
     e_values_[2] = ((lane_coef_.coef[2].a * pow(k, 2)) + (lane_coef_.coef[2].b * k) + lane_coef_.coef[2].c) - car_position;  //e1
     SteerAngle_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+  
   }
 }
 
