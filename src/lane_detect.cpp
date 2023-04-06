@@ -21,7 +21,7 @@ LaneDetector::LaneDetector()
   /******************************/
   /* Ros Topic Subscribe Option */
   /******************************/
-  this->get_parameter_or("subscribers/xavier_to_lane/topic", XavSubTopicName, std::string("/xav2lane_msg"));
+  this->get_parameter_or("subscribers/xavier_to_lane/topic", XavSubTopicName, std::string("xav2lane_msg"));
   this->get_parameter_or("subscribers/xavier_to_lane/queue_size", XavSubQueueSize, 1);
   this->get_parameter_or("subscribers/image_to_lane/topic", ImageSubTopicName, std::string("image_raw"));
   this->get_parameter_or("subscribers/image_to_lane/queue_size", ImageSubQueueSize, 1);
@@ -29,7 +29,7 @@ LaneDetector::LaneDetector()
   /****************************/
   /* Ros Topic Publish Option */
   /****************************/
-  this->get_parameter_or("publishers/lane_to_xavier/topic", XavPubTopicName, std::string("/lane2xav_msg"));
+  this->get_parameter_or("publishers/lane_to_xavier/topic", XavPubTopicName, std::string("lane2xav_msg"));
   this->get_parameter_or("publishers/lane_to_xavier/queue_size", XavPubQueueSize, 1);
   
   /************************/
