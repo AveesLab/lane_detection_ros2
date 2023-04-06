@@ -45,10 +45,6 @@ install(TARGETS
   lane_detect_node
   DESTINATION lib/${PROJECT_NAME}
 )
-<<<<<<< HEAD
-
-=======
->>>>>>> 84d357fbf36e40e685e1278d02c5651bd0504b56
 install(DIRECTORY
         include/
         DESTINATION include
