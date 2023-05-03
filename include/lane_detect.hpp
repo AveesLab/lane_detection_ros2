@@ -29,7 +29,7 @@
 //ROS2
 #include "rclcpp/rclcpp.hpp"
 
-#include "scale_truck_control_ros2/msg/cmd_data.hpp"
+#include "ros2_msg/msg/cmd_data.hpp"
 
 using namespace cv;
 using namespace std;
@@ -82,14 +82,14 @@ private:
 	void clear_release();
 
 	//Publisher
-        rclcpp::Publisher<scale_truck_control_ros2::msg::CmdData>::SharedPtr XavPublisher_;
+        rclcpp::Publisher<ros2_msg::msg::CmdData>::SharedPtr XavPublisher_;
 
         //Subscriber
-        rclcpp::Subscription<scale_truck_control_ros2::msg::CmdData>::SharedPtr XavSubscriber_;
+        rclcpp::Subscription<ros2_msg::msg::CmdData>::SharedPtr XavSubscriber_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr ImageSubscriber_;
     
     	//Callback Func
-        void XavSubCallback(const scale_truck_control_ros2::msg::CmdData::SharedPtr msg);
+        void XavSubCallback(const ros2_msg::msg::CmdData::SharedPtr msg);
         void ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg);
 
         bool viewImage_;
@@ -97,7 +97,7 @@ private:
 	bool droi_ready_ = false;
         bool isNodeRunning_ = true;
         bool controlDone_ = false;
-        scale_truck_control_ros2::msg::CmdData lane_coef_;
+        ros2_msg::msg::CmdData lane_coef_;
 
 	//image
     	bool imageStatus_ = false;

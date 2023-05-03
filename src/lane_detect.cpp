@@ -35,14 +35,14 @@ LaneDetector::LaneDetector()
   /************************/
   /* Ros Topic Subscriber */
   /************************/
-  XavSubscriber_ = this->create_subscription<scale_truck_control_ros2::msg::CmdData>(XavSubTopicName, XavSubQueueSize, std::bind(&LaneDetector::XavSubCallback, this, std::placeholders::_1));
+  XavSubscriber_ = this->create_subscription<ros2_msg::msg::CmdData>(XavSubTopicName, XavSubQueueSize, std::bind(&LaneDetector::XavSubCallback, this, std::placeholders::_1));
 
   ImageSubscriber_ = this->create_subscription<sensor_msgs::msg::Image>(ImageSubTopicName, ImageSubQueueSize, std::bind(&LaneDetector::ImageSubCallback, this, std::placeholders::_1));
 
   /***********************/
   /* Ros Topic Publisher */
   /***********************/
-  XavPublisher_ = this->create_publisher<scale_truck_control_ros2::msg::CmdData>(XavPubTopicName, XavPubQueueSize);
+  XavPublisher_ = this->create_publisher<ros2_msg::msg::CmdData>(XavPubTopicName, XavPubQueueSize);
 
   /***************/
   /* View Option */
@@ -202,7 +202,7 @@ LaneDetector::~LaneDetector(void)
 {
   isNodeRunning_ = false;
 
-  scale_truck_control_ros2::msg::CmdData xav;
+  ros2_msg::msg::CmdData xav;
   xav.coef = lane_coef_.coef;
   xav.cur_angle = AngleDegree_;
 
@@ -224,7 +224,7 @@ void LaneDetector::lanedetectInThread()
     std::this_thread::sleep_for(wait_duration);
   }
 
-  scale_truck_control_ros2::msg::CmdData xav;
+  ros2_msg::msg::CmdData xav;
 
   while(!controlDone_ && rclcpp::ok()) 
   {
@@ -254,7 +254,7 @@ void LaneDetector::LoadParams(void)
   this->get_parameter_or("LaneDetector/steer_angle",SteerAngle_, 0.0f);
 }
 
-void LaneDetector::XavSubCallback(const scale_truck_control_ros2::msg::CmdData::SharedPtr msg)
+void LaneDetector::XavSubCallback(const ros2_msg::msg::CmdData::SharedPtr msg)
 {
   float cur_vel_ = msg->cur_vel;
   distance_ = msg->cur_dist;
