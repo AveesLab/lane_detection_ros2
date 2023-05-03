@@ -97,6 +97,7 @@ private:
 	bool droi_ready_ = false;
         bool isNodeRunning_ = true;
         bool controlDone_ = false;
+	bool LC_mode_ = true;
         ros2_msg::msg::CmdData lane_coef_;
 
 	//image
@@ -113,8 +114,8 @@ private:
 	int canny_thresh1_, canny_thresh2_;
 
 	/********** Lane_detect ***********/
-	vector<Point2f> corners_, fROIcorners_, rROIcorners_;
-	vector<Point2f> warpCorners_, fROIwarpCorners_, rROIwarpCorners_;
+	vector<Point2f> corners_, fROIcorners_, lcROIcorners_;
+	vector<Point2f> warpCorners_, fROIwarpCorners_, lcROIwarpCorners_;
 	float wide_extra_upside_[2], wide_extra_downside_[2];
 
 	int last_Llane_base_;
