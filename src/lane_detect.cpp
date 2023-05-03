@@ -112,6 +112,15 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/front_cam/extra_up",extra_up[0], 0);
   this->get_parameter_or("ROI/front_cam/extra_down",extra_down[0], 0);
 
+  this->get_parameter_or("ROI/lc_mode/top_gap",t_gap[1], 0.886f);
+  this->get_parameter_or("ROI/lc_mode/bot_gap",b_gap[1], 0.078f);
+  this->get_parameter_or("ROI/lc_mode/top_height",t_height[1], 0.903f);
+  this->get_parameter_or("ROI/lc_mode/bot_height",b_height[1], 0.528f);
+  this->get_parameter_or("ROI/lc_mode/extra_f",f_extra[1], 0.0f);
+  this->get_parameter_or("ROI/lc_mode/extra_b",b_extra[1], 0.0f);
+  this->get_parameter_or("ROI/lc_mode/extra_up",extra_up[1], 0);
+  this->get_parameter_or("ROI/lc_mode/extra_down",extra_down[1], 0);
+
   this->get_parameter_or("crop/x", crop_x_, 100);
   this->get_parameter_or("crop/y", crop_y_, 0);
   this->get_parameter_or("crop/width", crop_width_, 0);
@@ -144,7 +153,30 @@ LaneDetector::LaneDetector()
   fROIwarpCorners_[2] = Point2f(wide_extra_downside_[0], height_);
   fROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[0], height_);
   /*** front cam ROI setting ***/
-   
+
+  /*** LC_mode ROI setting ***/
+  lcROIcorners_.resize(4);
+  lcROIwarpCorners_.resize(4);
+
+  top_gap[1] = width_ * t_gap[1];
+  bot_gap[1] = width_ * b_gap[1];
+  top_height[1] = height_ * t_height[1];
+  bot_height[1] = height_ * b_height[1];
+
+  lcROIcorners_[0] = Point2f(top_gap[1]+f_extra[1], bot_height[1]);
+  lcROIcorners_[1] = Point2f((width_ - top_gap[1])+f_extra[1], bot_height[1]);
+  lcROIcorners_[2] = Point2f(bot_gap[1]+b_extra[1], top_height[1]);
+  lcROIcorners_[3] = Point2f((width_ - bot_gap[1])+b_extra[1], top_height[1]);
+
+  wide_extra_upside_[1] = extra_up[1];
+  wide_extra_downside_[1] = extra_down[1];
+
+  lcROIwarpCorners_[0] = Point2f(wide_extra_upside_[1], 0.0);
+  lcROIwarpCorners_[1] = Point2f(width_ - wide_extra_upside_[1], 0.0);
+  lcROIwarpCorners_[2] = Point2f(wide_extra_downside_[1], height_);
+  lcROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[1], height_);
+  /*** LC_mode ROI setting ***/
+
   std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
   std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
 
@@ -817,10 +849,15 @@ void LaneDetector::controlSteer() {
 }
 
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {		
-  Mat new_frame, gray_frame, edge_frame, binary_frame, sliding_frame, resized_frame;
-  
+  Mat new_frame, gray_frame, edge_frame, binary_frame, sliding_frame, resized_frame, lc_frame;
+
+  if (LC_mode_){
+    std::copy(lcROIcorners_.begin(), lcROIcorners_.end(), corners_.begin());
+    std::copy(lcROIwarpCorners_.begin(), lcROIwarpCorners_.end(), warpCorners_.begin());
+  }
+
   if(!_frame.empty()) resize(_frame, new_frame, Size(width_, height_));
-  Mat trans = getPerspectiveTransform(corners_, warpCorners_);
+  Mat trans = getPerspectiveTransform(corners_, warpCorners_); /* apply ROI setting */
   
   cuda::GpuMat gpu_map1, gpu_map2;
   gpu_map1.upload(map1_);
@@ -830,17 +867,54 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   
   gpu_frame.upload(new_frame);
   cuda::remap(gpu_frame, gpu_remap_frame, gpu_map1, gpu_map2, INTER_LINEAR);
-  gpu_remap_frame.download(new_frame);
-  cuda::warpPerspective(gpu_remap_frame, gpu_warped_frame, trans, Size(width_, height_));
+  gpu_remap_frame.download(new_frame);  /* apply camera matrix to new_frame */
+
+  cuda::warpPerspective(gpu_remap_frame, gpu_warped_frame, trans, Size(width_, height_)); /* ROI apply frame */
+
   static cv::Ptr< cv::cuda::Filter > filters;
   filters = cv::cuda::createGaussianFilter(gpu_warped_frame.type(), gpu_blur_frame.type(), cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
   filters->apply(gpu_warped_frame, gpu_blur_frame);
   cuda::cvtColor(gpu_blur_frame, gpu_gray_frame, COLOR_BGR2GRAY);
   gpu_gray_frame.download(gray_frame);
+
+  namedWindow("Window4");
+  moveWindow("Window4", 1280, 520);
+
+  if(!gray_frame.empty()) {
+    resize(gray_frame, gray_frame, Size(640, 480));
+    imshow("Window4", gray_frame);
+  }
+
   adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 51, -50);
-  
+
   sliding_frame = detect_lines_sliding_window(binary_frame, _view);
   controlSteer();
+
+  /* one more sliding_window() for another laneDetection by another ROI */
+//  if (LC_mode){
+//    map1_ = lc_map1_.clone();
+//    map2_ = lc_map2_.clone();
+//
+//    std::vector<Point2f> lcROIcorners(4);
+//
+//    std::copy(lcROIcorners_.begin(), lcROIcorners_.end(), corners2_.begin());
+//    std::copy(lcROIwarpCorners_.begin(), lcROIwarpCorners_.end(), warpCorners2_.begin());
+//    
+//    Mat trans = getPerspectiveTransform(corners_, warpCorners_); /* apply ROI setting */
+//      
+//    cuda::warpPerspective(gpu_remap_frame, gpu_warped_frame, trans, Size(width_, height_)); /* ROI apply frame */
+//  
+//    static cv::Ptr< cv::cuda::Filter > filters;
+//    filters = cv::cuda::createGaussianFilter(gpu_warped_frame.type(), gpu_blur_frame.type(), cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+//    filters->apply(gpu_warped_frame, gpu_blur_frame);
+//    cuda::cvtColor(gpu_blur_frame, gpu_gray_frame, COLOR_BGR2GRAY);
+//    gpu_gray_frame.download(gray_frame);
+//    adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 51, -50);
+//  
+//    lc_frame = detect_lines_sliding_window(binary_frame, _view);
+//
+//  }
+  /* end  */
 
   if (_view) {
     resized_frame = draw_lane(sliding_frame, new_frame);
@@ -848,9 +922,9 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     namedWindow("Window1");
     moveWindow("Window1", 0, 0);
     namedWindow("Window2");
-    moveWindow("Window2", 640, 0);
-    namedWindow("Window3");
-    moveWindow("Window3", 1280, 0);
+    moveWindow("Window2", 720, 0);
+//    namedWindow("Window3");
+//    moveWindow("Window3", 1280, 0);
 
     if(!new_frame.empty()) {
       resize(new_frame, new_frame, Size(640, 480));
@@ -860,10 +934,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       resize(sliding_frame, sliding_frame, Size(640, 480));
       imshow("Window2", sliding_frame);
     }
-    if(!resized_frame.empty()){
-      resize(resized_frame, resized_frame, Size(640, 480));
-      imshow("Window3", resized_frame);
-    }
+//    if(!resized_frame.empty()){
+//      resize(resized_frame, resized_frame, Size(640, 480));
+//      imshow("Window3", resized_frame);
+//    }
 
     waitKey(_delay);
   }
