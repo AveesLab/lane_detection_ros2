@@ -120,21 +120,29 @@ private:
 
 	int last_Llane_base_;
 	int last_Rlane_base_;
+	int last_Elane_base_;
 
 	vector<int> left_lane_inds_;
 	vector<int> right_lane_inds_;
+	vector<int> extra_lane_inds_;
 	vector<int> left_x_;
 	vector<int> left_y_;
 	vector<int> right_x_;
 	vector<int> right_y_;
+	vector<int> extra_x_;
+	vector<int> extra_y_;
 	vector<int> center_x_;
 	vector<int> center_y_;
+	vector<int> center2_x_;
+	vector<int> center2_y_;
 	
-	vector<Point> left_lane_, right_lane_;
+	vector<Point> left_lane_, right_lane_, extra_lane_;
 
 	Mat left_coef_;
 	Mat right_coef_;
+	Mat extra_coef_;
 	Mat center_coef_;
+	Mat center2_coef_;
 	float left_curve_radius_;
 	float right_curve_radius_;
 	float center_position_;
@@ -155,6 +163,8 @@ private:
 	double diff_;
 
 	int crop_x_, crop_y_, crop_width_, crop_height_;
+
+	int Threshold_box_size_, Threshold_box_offset_;
 };
 
 }
