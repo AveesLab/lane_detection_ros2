@@ -45,8 +45,8 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 install(DIRECTORY
-        include/
-        DESTINATION include
+  include/
+  DESTINATION include
 )
 
 if(BUILD_TESTING)

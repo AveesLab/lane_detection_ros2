@@ -97,7 +97,6 @@ private:
 	bool droi_ready_ = false;
         bool isNodeRunning_ = true;
         bool controlDone_ = false;
-	bool LC_mode_ = true;
         ros2_msg::msg::CmdData lane_coef_;
 
 	//image

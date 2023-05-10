@@ -99,7 +99,6 @@ LaneDetector::LaneDetector()
   float t_gap[2], b_gap[2], t_height[2], b_height[2], f_extra[2], b_extra[2];
   int top_gap[2], bot_gap[2], top_height[2], bot_height[2], extra_up[2], extra_down[2];
 
-  this->get_parameter_or("ROI/mode", LC_mode_, true);
   this->get_parameter_or("ROI/dynamic_roi",option_, true);
   this->get_parameter_or("ROI/threshold",threshold_, 128);
   this->get_parameter_or("ROI/canny/thresh1",canny_thresh1_, 100);
@@ -158,29 +157,6 @@ LaneDetector::LaneDetector()
   fROIwarpCorners_[2] = Point2f(wide_extra_downside_[0], height_);
   fROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[0], height_);
   /*** front cam ROI setting ***/
-
-  /*** LC_mode ROI setting ***/
-  lcROIcorners_.resize(4);
-  lcROIwarpCorners_.resize(4);
-
-  top_gap[1] = width_ * t_gap[1];
-  bot_gap[1] = width_ * b_gap[1];
-  top_height[1] = height_ * t_height[1];
-  bot_height[1] = height_ * b_height[1];
-
-  lcROIcorners_[0] = Point2f(top_gap[1]+f_extra[1], bot_height[1]);
-  lcROIcorners_[1] = Point2f((width_ - top_gap[1])+f_extra[1], bot_height[1]);
-  lcROIcorners_[2] = Point2f(bot_gap[1]+b_extra[1], top_height[1]);
-  lcROIcorners_[3] = Point2f((width_ - bot_gap[1])+b_extra[1], top_height[1]);
-
-  wide_extra_upside_[1] = extra_up[1];
-  wide_extra_downside_[1] = extra_down[1];
-
-  lcROIwarpCorners_[0] = Point2f(wide_extra_upside_[1], 0.0);
-  lcROIwarpCorners_[1] = Point2f(width_ - wide_extra_upside_[1], 0.0);
-  lcROIwarpCorners_[2] = Point2f(wide_extra_downside_[1], height_);
-  lcROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[1], height_);
-  /*** LC_mode ROI setting ***/
 
   std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
   std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
@@ -985,12 +961,7 @@ void LaneDetector::controlSteer() {
 
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {		
   Mat new_frame, gray_frame, edge_frame, binary_frame, sliding_frame, resized_frame, lc_frame;
-
-  if (LC_mode_){
-    std::copy(lcROIcorners_.begin(), lcROIcorners_.end(), corners_.begin());
-    std::copy(lcROIwarpCorners_.begin(), lcROIwarpCorners_.end(), warpCorners_.begin());
-  }
-
+  
   if(!_frame.empty()) resize(_frame, new_frame, Size(width_, height_));
   Mat trans = getPerspectiveTransform(corners_, warpCorners_); /* apply ROI setting */
   
