@@ -215,6 +215,7 @@ void LaneDetector::lanedetectInThread()
      
       xav.coef = lane_coef_.coef;
       xav.cur_angle = AngleDegree_;
+      xav.center_select = center_select_;
       XavPublisher_->publish(xav);
     }
 
@@ -660,6 +661,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     center2_coef_ = polyfit(center2_y_, center2_x_);
   }
 
+  printf("center | center2 : %d|%d\n", center_x_.front(), center2_x_.front());
+
+  int center_diff_ = abs(mid_point - center_x_.front());
+  int center2_diff_ = abs(mid_point - center2_x_.front());
+
+  if(center_diff_ > center2_diff_) center_select_ = 2;
+  else center_select_ = 1;
+
   delete[] hist;
 
   return result;
@@ -925,24 +934,40 @@ void LaneDetector::get_steer_coef(float vel){
 }
 
 void LaneDetector::controlSteer() {
-  Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_);
+  Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_), e_fit(extra_coef_), c2_fit(center2_coef_);
   float car_position = width_ / 2;
   float l1 = 0, l2 = 0;
   
   lane_coef_.coef.resize(3);
   if (!l_fit.empty() && !r_fit.empty()) {
-    lane_coef_.coef[0].a = l_fit.at<float>(2, 0);
-    lane_coef_.coef[0].b = l_fit.at<float>(1, 0);
-    lane_coef_.coef[0].c = l_fit.at<float>(0, 0);
+     if(center_select_ == 1){ // lane1
+      printf("center_select_ == 1\n");
+      lane_coef_.coef[0].a = l_fit.at<float>(2, 0);
+      lane_coef_.coef[0].b = l_fit.at<float>(1, 0);
+      lane_coef_.coef[0].c = l_fit.at<float>(0, 0);
 
-    lane_coef_.coef[1].a = r_fit.at<float>(2, 0);
-    lane_coef_.coef[1].b = r_fit.at<float>(1, 0);
-    lane_coef_.coef[1].c = r_fit.at<float>(0, 0);
+      lane_coef_.coef[1].a = r_fit.at<float>(2, 0);
+      lane_coef_.coef[1].b = r_fit.at<float>(1, 0);
+      lane_coef_.coef[1].c = r_fit.at<float>(0, 0);
 
-    lane_coef_.coef[2].a = c_fit.at<float>(2, 0);
-    lane_coef_.coef[2].b = c_fit.at<float>(1, 0);
-    lane_coef_.coef[2].c = c_fit.at<float>(0, 0);
-    
+      lane_coef_.coef[2].a = c_fit.at<float>(2, 0);
+      lane_coef_.coef[2].b = c_fit.at<float>(1, 0);
+      lane_coef_.coef[2].c = c_fit.at<float>(0, 0);
+    }
+    else { // lane2 
+      printf("center_select_ == 2\n");
+      lane_coef_.coef[0].a = r_fit.at<float>(2, 0);
+      lane_coef_.coef[0].b = r_fit.at<float>(1, 0);
+      lane_coef_.coef[0].c = r_fit.at<float>(0, 0);
+
+      lane_coef_.coef[1].a = e_fit.at<float>(2, 0);
+      lane_coef_.coef[1].b = e_fit.at<float>(1, 0);
+      lane_coef_.coef[1].c = e_fit.at<float>(0, 0);
+
+      lane_coef_.coef[2].a = c2_fit.at<float>(2, 0);
+      lane_coef_.coef[2].b = c2_fit.at<float>(1, 0);
+      lane_coef_.coef[2].c = c2_fit.at<float>(0, 0);
+    } 
 
     float i = ((float)height_) * eL_height_;  
     float j = ((float)height_) * trust_height_;

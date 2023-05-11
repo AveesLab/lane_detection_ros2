@@ -98,6 +98,7 @@ private:
         bool isNodeRunning_ = true;
         bool controlDone_ = false;
         ros2_msg::msg::CmdData lane_coef_;
+	int center_select_;
 
 	//image
     	bool imageStatus_ = false;
