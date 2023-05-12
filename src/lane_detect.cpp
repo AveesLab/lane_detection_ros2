@@ -1067,19 +1067,19 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     namedWindow("Window2");
     moveWindow("Window2", 720, 0);
     namedWindow("Window3");
-    moveWindow("Window3", 1380, 0);
+    moveWindow("Window3", 1480, 0);
 
     if(!new_frame.empty()) {
       resize(new_frame, new_frame, Size(640, 480));
       imshow("Window1", new_frame);
     }
-    if(!sliding_frame.empty()) {
-      resize(sliding_frame, sliding_frame, Size(640, 480));
-      imshow("Window2", sliding_frame);
-    }
     if(!resized_frame.empty()){
       resize(resized_frame, resized_frame, Size(640, 480));
       imshow("Window3", resized_frame);
+    }
+    if(!sliding_frame.empty()) {
+      resize(sliding_frame, sliding_frame, Size(640, 480));
+      imshow("Window2", sliding_frame);
     }
 
     waitKey(_delay);
