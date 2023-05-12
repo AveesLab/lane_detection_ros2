@@ -30,6 +30,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "ros2_msg/msg/cmd_data.hpp"
 
+#include "spline.h"
+
 using namespace cv;
 using namespace std;
 using namespace std::chrono_literals;
