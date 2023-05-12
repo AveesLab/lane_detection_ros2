@@ -1,4 +1,5 @@
 #include "lane_detect.hpp"
+#include "spline.h"
 
 namespace LaneDetect {
 
@@ -937,7 +938,8 @@ void LaneDetector::controlSteer() {
   Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_), e_fit(extra_coef_), c2_fit(center2_coef_);
   float car_position = width_ / 2;
   float l1 = 0, l2 = 0;
-  
+  center_select_ = 2;
+
   lane_coef_.coef.resize(3);
   if (!l_fit.empty() && !r_fit.empty()) {
      if(center_select_ == 1){ // lane1
@@ -969,6 +971,27 @@ void LaneDetector::controlSteer() {
       lane_coef_.coef[2].c = c2_fit.at<float>(0, 0);
     } 
 
+//    float tY1_ = ((float)height_) * 0.3;
+//    float tY2_ = ((float)height_) * 0.5;
+//
+//    float tX1_ = ((lane_coef_.coef[2].a * pow(tY1_, 2)) + (lane_coef_.coef[2].b * tY1_) + lane_coef_.coef[2].c);
+//    float tX2_ = ((lane_coef_.coef[0].a * pow(tY2_, 2)) + (lane_coef_.coef[0].b * tY2_) + lane_coef_.coef[0].c);
+//    
+//    std::vector<double> X = {(double)car_position, (double)tX2_, (double)tX1_};
+//    std::vector<double> Y = {(double)height_ , (double)tY2_, (double)tY1_};
+//
+////    std::vector<double> X = {0, 15, 30};
+////    std::vector<double> Y = {0, 10, 8};
+//
+//    tk::spline s(X, Y, tk::spline::cspline);
+//    double x = 394.69989 , y = s(x), deriv=s.deriv(1,x);
+//    
+//    
+//
+//
+//    printf("spline at %f is %f with derivate %f\n", x, y, deriv);
+//    printf("tX1 %f , tX2 %f , tY1  %f , tY2  %f , width/2 %f , height %d\n", tX1_, tX2_, tY1_, tY2_,car_position, height_);
+//
     float i = ((float)height_) * eL_height_;  
     float j = ((float)height_) * trust_height_;
     float k = ((float)height_) * e1_height_;
@@ -982,6 +1005,27 @@ void LaneDetector::controlSteer() {
     SteerAngle_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
   
   }
+}
+
+void LaneDetector::cspline() {
+    float tY1_ = ((float)height_) * 0.3;
+    float tY2_ = ((float)height_) * 0.5;
+
+    float tX1_ = ((lane_coef_.coef[2].a * pow(tY1_, 2)) + (lane_coef_.coef[2].b * tY1_) + lane_coef_.coef[2].c);
+    float tX2_ = ((lane_coef_.coef[0].a * pow(tY2_, 2)) + (lane_coef_.coef[0].b * tY2_) + lane_coef_.coef[0].c);
+
+    std::vector<double> X = {(double)(width_/2), (double)tX2_, (double)tX1_};
+    std::vector<double> Y = {(double)height_ , (double)tY2_, (double)tY1_};
+
+//    std::vector<double> X = {0, 15, 30};
+//    std::vector<double> Y = {0, 10, 8};
+
+    tk::spline s(X, Y, tk::spline::cspline);
+    double x = 394.69989 , y = s(x), deriv=s.deriv(1,x);
+
+    printf("spline at %f is %f with derivate %f\n", x, y, deriv);
+    printf("tX1 %f , tX2 %f , tY1  %f , tY2  %f , width/2 %f , height %d\n", tX1_, tX2_, tY1_, tY2_,width_/2, height_);
+
 }
 
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {		

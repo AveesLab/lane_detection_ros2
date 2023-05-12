@@ -28,7 +28,6 @@
 
 //ROS2
 #include "rclcpp/rclcpp.hpp"
-
 #include "ros2_msg/msg/cmd_data.hpp"
 
 using namespace cv;
@@ -80,6 +79,7 @@ private:
 	Mat drawBox(Mat frame);
 	void controlSteer();
 	void clear_release();
+	void cspline();
 
 	//Publisher
         rclcpp::Publisher<ros2_msg::msg::CmdData>::SharedPtr XavPublisher_;
