@@ -108,8 +108,8 @@ private:
 	std_msgs::msg::Header imageHeader_;
         cv::Mat camImageCopy_;
 	float AngleDegree_;
-   
-	//image
+
+        //rear
     	bool rearImageStatus_ = false;
 	std_msgs::msg::Header rearImageHeader_;
         cv::Mat rearCamImageCopy_;

@@ -273,6 +273,7 @@ void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg
 
 void LaneDetector::rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg)
 {
+  Mat frame_;
   cv_bridge::CvImagePtr cam_image;
   try{
     cam_image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
@@ -283,8 +284,16 @@ void LaneDetector::rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr
   if(cam_image) {
     rearImageHeader_ = msg->header;
     rearCamImageCopy_ = cam_image->image.clone();
+    frame_ = camImageCopy_;
     rearImageStatus_ = true;
   }
+//  namedWindow("rearCam");
+//  moveWindow("rearCam", 720, 720);
+//
+//  if(!frame_.empty()) {
+//    resize(frame_, frame_, Size(640, 480));
+//    imshow("rearCam", frame_);
+//  }
 }
 
 int LaneDetector::arrMaxIdx(int hist[], int start, int end, int Max) {
@@ -428,26 +437,25 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     distance = 0;
     window_height = height / n_windows;
   }
-  int Llane_base = arrMaxIdx(hist, 100, mid_point, width);
-  int Rlane_base = arrMaxIdx(hist, mid_point, width - 100, width);
-  int Elane_base = arrMaxIdx(hist, width - 100, width, width);
+  int Llane_base = 0, Rlane_base = 0, Elane_base = 0;  
+  Llane_base = arrMaxIdx(hist, 100, mid_point, width);
+  Rlane_base = arrMaxIdx(hist, mid_point, width - 100, width);
+  Elane_base = arrMaxIdx(hist, width - 100, width, width);
+  RCLCPP_ERROR(this->get_logger(), "Llane | Rlane | Elane: %d | %d | %d\n", Llane_base, Rlane_base, Elane_base);
+
   if (Llane_base == -1) {
     RCLCPP_ERROR(this->get_logger(), "Not Detection Llane_Base");
-    return result;
   }
   if (Rlane_base == -1) {
     RCLCPP_ERROR(this->get_logger(), "Not Detection Rlane_Base");
-    return result;
   }
- if (Elane_base == -1) {
+  if (Elane_base == -1) {
     RCLCPP_ERROR(this->get_logger(), "Not Detection Elane_Base");
-    return result;
- } 
+  } 
 
   int Llane_current = Llane_base;
   int Rlane_current = Rlane_base;
   int Elane_current = Elane_base;
-//  printf("Llane | Rlane : %d | %d\n", Llane_current, Rlane_current);
 
 //  if (last_Llane_base_!=0 || last_Rlane_base_!=0) {
 //    int Llane_current = Llane_base;
@@ -475,13 +483,17 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     int  Lx_pos = Llane_current - margin; // win_xleft_low, win_xleft_high = win_xleft_low + margin*2
     int  Rx_pos = Rlane_current - margin; // win_xrignt_low, win_xright_high = win_xright_low + margin*2
     int  Ex_pos = Elane_current - margin; // win_xrignt_low, win_xright_high = win_xright_low + margin*2
-    if (_view) {
+    if (_view && Lx_pos > 0) {
       rectangle(result, \
         Rect(Lx_pos, Ly_pos, window_width, window_height), \
         Scalar(255, 50, 100), 1);
+    }
+    if (_view && Rx_pos > 0) {
       rectangle(result, \
         Rect(Rx_pos, Ry_pos, window_width, window_height), \
         Scalar(100, 50, 255), 1);
+    }
+    if (_view && Ex_pos > 0) {
       rectangle(result, \
         Rect(Ex_pos, Ey_pos, window_width, window_height), \
         Scalar(50, 255, 255), 1);
@@ -742,7 +754,6 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
 //  std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)tY3_, (double)height_}; // 작은거 부터
   std::vector<double> X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
   std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)height_}; // 작은거 부터
-
   tk::spline cspline_eq_(Y, X, tk::spline::cspline); // s : lane2 coef
 
   //trans = getPerspectiveTransform(fROIwarpCorners_, fROIcorners_);
@@ -1125,11 +1136,14 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   filters = cv::cuda::createGaussianFilter(gpu_warped_frame.type(), gpu_blur_frame.type(), cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
   filters->apply(gpu_warped_frame, gpu_blur_frame);
   cuda::cvtColor(gpu_blur_frame, gpu_gray_frame, COLOR_BGR2GRAY);
-  gpu_gray_frame.download(gray_frame);
-  adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
-//  cuda::threshold(gpu_gray_frame, gpu_binary_frame, threshold_, 255, THRESH_BINARY);
-//  gpu_binary_frame.download(binary_frame);
 
+  /* adaptive Threshold */
+//  gpu_gray_frame.download(gray_frame);
+//  adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
+//
+  /* manual Threshold */
+  cuda::threshold(gpu_gray_frame, gpu_binary_frame, threshold_, 255, THRESH_BINARY);
+  gpu_binary_frame.download(binary_frame);
 
   sliding_frame = detect_lines_sliding_window(binary_frame, _view);
   controlSteer();
@@ -1139,22 +1153,22 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 
     namedWindow("Window1");
     moveWindow("Window1", 0, 0);
-    namedWindow("Window2");
-    moveWindow("Window2", 720, 0);
     namedWindow("Window3");
     moveWindow("Window3", 1480, 0);
+    namedWindow("Window2");
+    moveWindow("Window2", 720, 0);
 
     if(!new_frame.empty()) {
       resize(new_frame, new_frame, Size(640, 480));
       imshow("Window1", new_frame);
     }
-    if(!resized_frame.empty()){
-      resize(resized_frame, resized_frame, Size(640, 480));
-      imshow("Window3", resized_frame);
-    }
     if(!sliding_frame.empty()) {
       resize(sliding_frame, sliding_frame, Size(640, 480));
       imshow("Window2", sliding_frame);
+    }
+    if(!resized_frame.empty()){
+      resize(resized_frame, resized_frame, Size(640, 480));
+      imshow("Window3", resized_frame);
     }
 
     waitKey(_delay);
