@@ -63,7 +63,6 @@ public:
 	std::string name_;
 	unsigned int x_ = 0, y_ = 0, w_ = 0, h_ = 0;
 	Point center_, warp_center_;
-	float SteerAngle2_ = 0.0f;
 	float log_e1_ = 0.0f;
 	float log_el_ = 0.0f;
 	float vel_ = 0.0f;
@@ -89,10 +88,12 @@ private:
         //Subscriber
         rclcpp::Subscription<ros2_msg::msg::CmdData>::SharedPtr XavSubscriber_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr ImageSubscriber_;
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr rearImageSubscriber_;
     
     	//Callback Func
         void XavSubCallback(const ros2_msg::msg::CmdData::SharedPtr msg);
         void ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg);
+        void rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg);
 
         bool viewImage_;
         int waitKeyDelay_;
@@ -108,6 +109,11 @@ private:
         cv::Mat camImageCopy_;
 	float AngleDegree_;
    
+	//image
+    	bool rearImageStatus_ = false;
+	std_msgs::msg::Header rearImageHeader_;
+        cv::Mat rearCamImageCopy_;
+
         std::thread lanedetect_Thread;
         void lanedetectInThread();
 
@@ -149,11 +155,14 @@ private:
 	float right_curve_radius_;
 	float center_position_;
 	float SteerAngle_;
+	float SteerAngle2_;
 	float eL_height_, trust_height_, e1_height_, lp_;
 	float eL_height2_;
 	float K_;
 	double a_[5], b_[5];
 	vector<float> e_values_;
+	float target_x_;
+	float target_y_;
 
 	/********** PID control ***********/
 	int prev_lane_, prev_pid_;

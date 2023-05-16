@@ -14,6 +14,8 @@ LaneDetector::LaneDetector()
   int XavSubQueueSize;
   std::string ImageSubTopicName;
   int ImageSubQueueSize;
+  std::string rearImageSubTopicName;
+  int rearImageSubQueueSize;
 
   std::string XavPubTopicName;
   int XavPubQueueSize;
@@ -23,8 +25,10 @@ LaneDetector::LaneDetector()
   /******************************/
   this->get_parameter_or("subscribers/xavier_to_lane/topic", XavSubTopicName, std::string("xav2lane_msg"));
   this->get_parameter_or("subscribers/xavier_to_lane/queue_size", XavSubQueueSize, 1);
-  this->get_parameter_or("subscribers/image_to_lane/topic", ImageSubTopicName, std::string("image_raw"));
+  this->get_parameter_or("subscribers/image_to_lane/topic", ImageSubTopicName, std::string("usb_cam/image_raw"));
   this->get_parameter_or("subscribers/image_to_lane/queue_size", ImageSubQueueSize, 1);
+  this->get_parameter_or("subscribers/rearimage_to_lane/topic", rearImageSubTopicName, std::string("rear_cam/image_raw"));
+  this->get_parameter_or("subscribers/rearimage_to_lane/queue_size", rearImageSubQueueSize, 1);
 
   /****************************/
   /* Ros Topic Publish Option */
@@ -38,6 +42,8 @@ LaneDetector::LaneDetector()
   XavSubscriber_ = this->create_subscription<ros2_msg::msg::CmdData>(XavSubTopicName, XavSubQueueSize, std::bind(&LaneDetector::XavSubCallback, this, std::placeholders::_1));
 
   ImageSubscriber_ = this->create_subscription<sensor_msgs::msg::Image>(ImageSubTopicName, ImageSubQueueSize, std::bind(&LaneDetector::ImageSubCallback, this, std::placeholders::_1));
+
+  rearImageSubscriber_ = this->create_subscription<sensor_msgs::msg::Image>(rearImageSubTopicName, rearImageSubQueueSize, std::bind(&LaneDetector::rearImageSubCallback, this, std::placeholders::_1));
 
   /***********************/
   /* Ros Topic Publisher */
@@ -198,7 +204,7 @@ void LaneDetector::lanedetectInThread()
 {
   const auto wait_duration = std::chrono::milliseconds(2000);
   while(!imageStatus_) {
-    printf("Waiting for image.\n");
+    RCLCPP_INFO(this->get_logger(), "Waiting for image.\n");
     if(!isNodeRunning_) {
       return;
     }
@@ -215,7 +221,10 @@ void LaneDetector::lanedetectInThread()
      
       xav.coef = lane_coef_.coef;
       xav.cur_angle = AngleDegree_;
+      xav.cur_angle2 = SteerAngle2_;
       xav.center_select = center_select_;
+      xav.target_x = target_x_;
+      xav.target_y = target_y_;
       XavPublisher_->publish(xav);
     }
 
@@ -234,6 +243,7 @@ void LaneDetector::LoadParams(void)
   this->get_parameter_or("LaneDetector/trust_height",trust_height_, 1.0f);  
   this->get_parameter_or("LaneDetector/lp",lp_, 756.0f);  
   this->get_parameter_or("LaneDetector/steer_angle",SteerAngle_, 0.0f);
+  this->get_parameter_or("LaneDetector/steer_angle2",SteerAngle2_, 0.0f);
 }
 
 void LaneDetector::XavSubCallback(const ros2_msg::msg::CmdData::SharedPtr msg)
@@ -258,6 +268,22 @@ void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg
     imageHeader_ = msg->header;
     camImageCopy_ = cam_image->image.clone();
     imageStatus_ = true;
+  }
+}
+
+void LaneDetector::rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg)
+{
+  cv_bridge::CvImagePtr cam_image;
+  try{
+    cam_image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+  } catch (cv_bridge::Exception& e) {
+    RCLCPP_ERROR(this->get_logger(), "cv_bridge exception : %s", e.what());
+  }
+
+  if(cam_image) {
+    rearImageHeader_ = msg->header;
+    rearCamImageCopy_ = cam_image->image.clone();
+    rearImageStatus_ = true;
   }
 }
 
@@ -405,13 +431,23 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   int Llane_base = arrMaxIdx(hist, 100, mid_point, width);
   int Rlane_base = arrMaxIdx(hist, mid_point, width - 100, width);
   int Elane_base = arrMaxIdx(hist, width - 100, width, width);
-  if (Llane_base == -1 || Rlane_base == -1)
+  if (Llane_base == -1) {
+    RCLCPP_ERROR(this->get_logger(), "Not Detection Llane_Base");
     return result;
+  }
+  if (Rlane_base == -1) {
+    RCLCPP_ERROR(this->get_logger(), "Not Detection Rlane_Base");
+    return result;
+  }
+ if (Elane_base == -1) {
+    RCLCPP_ERROR(this->get_logger(), "Not Detection Elane_Base");
+    return result;
+ } 
 
   int Llane_current = Llane_base;
   int Rlane_current = Rlane_base;
   int Elane_current = Elane_base;
-  printf("Llane | Rlane : %d | %d\n", Llane_current, Rlane_current);
+//  printf("Llane | Rlane : %d | %d\n", Llane_current, Rlane_current);
 
 //  if (last_Llane_base_!=0 || last_Rlane_base_!=0) {
 //    int Llane_current = Llane_base;
@@ -661,7 +697,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     center2_coef_ = polyfit(center2_y_, center2_x_);
   }
 
-  printf("center | center2 : %d|%d\n", center_x_.front(), center2_x_.front());
+//  printf("center | center2 : %d|%d\n", center_x_.front(), center2_x_.front());
 
   int center_diff_ = abs(mid_point - center_x_.front());
   int center2_diff_ = abs(mid_point - center2_x_.front());
@@ -979,7 +1015,21 @@ void LaneDetector::get_steer_coef(float vel){
 void LaneDetector::controlSteer() {
   Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_), e_fit(extra_coef_), c2_fit(center2_coef_);
   float car_position = width_ / 2;
-  float l1 = 0, l2 = 0;
+  float l1 = 0, l2 = 0, l3 = 0;
+  float tY1_ = ((float)height_) * 0.3;
+  float tY2_ = ((float)height_) * 0.4;
+  float tY3_ = ((float)height_) * 0.5;
+
+  int tX1_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center2_coef_.at<float>(1, 0) * tY1_) + center2_coef_.at<float>(0, 0));
+  int tX2_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (center2_coef_.at<float>(1, 0) * tY2_) + center2_coef_.at<float>(0, 0));
+  int tX3_ = (int)((right_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (right_coef_.at<float>(1, 0) * tY3_) + right_coef_.at<float>(0, 0));
+
+//  std::vector<double> X = {(double)tX1_, (double)tX2_, (double)tX3_, (double)(width_/2)};
+//  std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)tY3_, (double)height_}; // 작은거 부터
+  std::vector<double> X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
+  std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)height_}; // 작은거 부터
+
+  tk::spline cspline_eq_(Y, X, tk::spline::cspline); // s : lane2 coef
 
   lane_coef_.coef.resize(3);
   if (!l_fit.empty() && !r_fit.empty()) {
@@ -1024,26 +1074,34 @@ void LaneDetector::controlSteer() {
     e_values_[2] = ((lane_coef_.coef[2].a * pow(k, 2)) + (lane_coef_.coef[2].b * k) + lane_coef_.coef[2].c) - car_position;  //e1
     SteerAngle_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
   
+    l3 = (float)cspline_eq_(i) - (float)cspline_eq_(j);
+    e_values_[0] = (float)cspline_eq_(i) - car_position;  //eL
+    e_values_[1] = e_values_[0] - (lp_ * (l3 / l1));  //trust_e1
+    e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
+    SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+
+    target_x_ = e_values_[0];
+    target_y_ = lp_;
   }
 }
 
-void LaneDetector::cspline() {
-    float tY1_ = ((float)height_) * 0.3;
-    float tY2_ = ((float)height_) * 0.5;
-
-    int tX1_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center2_coef_.at<float>(1, 0) * tY1_) + center2_coef_.at<float>(0, 0));
-    int tX2_ = (int)((right_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (right_coef_.at<float>(1, 0) * tY2_) + right_coef_.at<float>(0, 0));
-
-    std::vector<double> X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-    std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)height_}; // x 작은거 부터
-
-    tk::spline s(Y, X, tk::spline::cspline); // s : lane2 coef
-    double y = 480 , x = s(y), deriv=s.deriv(1,y);
-
-    printf("spline at %f is %f with derivate %f\n", y, x, deriv);
-    printf("tX1 %d, tX2 %d, tY1 %f, tY2 %f, width/2 %d, height %d\n", tX1_, tX2_, tY1_, tY2_, width_/2, height_);
-
-}
+//void LaneDetector::cspline() {
+//    float tY1_ = ((float)height_) * 0.3;
+//    float tY2_ = ((float)height_) * 0.5;
+//
+//    int tX1_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center2_coef_.at<float>(1, 0) * tY1_) + center2_coef_.at<float>(0, 0));
+//    int tX2_ = (int)((right_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (right_coef_.at<float>(1, 0) * tY2_) + right_coef_.at<float>(0, 0));
+//
+//    std::vector<double> X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
+//    std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)height_}; // x 작은거 부터
+//
+//    tk::spline s(Y, X, tk::spline::cspline); // s : lane2 coef
+//    double y = 480 , x = s(y), deriv=s.deriv(1,y);
+//
+//    printf("spline at %f is %f with derivate %f\n", y, x, deriv);
+//    printf("tX1 %d, tX2 %d, tY1 %f, tY2 %f, width/2 %d, height %d\n", tX1_, tX2_, tY1_, tY2_, width_/2, height_);
+//
+//}
 
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {		
   Mat new_frame, gray_frame, edge_frame, binary_frame, sliding_frame, resized_frame, lc_frame;
