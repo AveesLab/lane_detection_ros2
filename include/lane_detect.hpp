@@ -110,6 +110,7 @@ private:
 	float AngleDegree_;
 
         //rear
+	bool rear_view_ = false;
     	bool rearImageStatus_ = false;
 	std_msgs::msg::Header rearImageHeader_;
         cv::Mat rearCamImageCopy_;

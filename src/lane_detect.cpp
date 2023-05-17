@@ -54,6 +54,7 @@ LaneDetector::LaneDetector()
   /* View Option */
   /***************/
   this->get_parameter_or("image_view/enable_opencv", viewImage_, true);
+  this->get_parameter_or("rear_image_view/enable_opencv", rear_view_, false);
   this->get_parameter_or("image_view/wait_key_delay", waitKeyDelay_, 3);
 
 
@@ -287,13 +288,14 @@ void LaneDetector::rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr
     frame_ = camImageCopy_;
     rearImageStatus_ = true;
   }
-//  namedWindow("rearCam");
-//  moveWindow("rearCam", 720, 720);
-//
-//  if(!frame_.empty()) {
-//    resize(frame_, frame_, Size(640, 480));
-//    imshow("rearCam", frame_);
-//  }
+
+  if(!frame_.empty() && rear_view_) {
+    namedWindow("rearCam");
+    moveWindow("rearCam", 1280, 520);
+    resize(frame_, frame_, Size(640, 480));
+    imshow("rearCam", frame_);
+    waitKey(2);
+  }
 }
 
 int LaneDetector::arrMaxIdx(int hist[], int start, int end, int Max) {
