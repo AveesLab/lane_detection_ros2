@@ -414,7 +414,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     hist[i] = 0;
   }
 
-  for (int j = (height / 2); j < height; j++) { // hist 범위 절반부터 읽기
+  for (int j = 0; j < height; j++) { 
     for (int i = 0; i < width; i++) {
       if (frame.at <uchar>(j, i) == 255) {
         hist[i] += 1;
