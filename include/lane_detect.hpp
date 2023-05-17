@@ -80,7 +80,7 @@ private:
 	Mat drawBox(Mat frame);
 	void controlSteer();
 	void clear_release();
-	void cspline();
+	tk::spline cspline();
 
 	//Publisher
         rclcpp::Publisher<ros2_msg::msg::CmdData>::SharedPtr XavPublisher_;
