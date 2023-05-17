@@ -135,7 +135,7 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("crop/height", crop_height_, 0);
 
   this->get_parameter_or("threshold/box_size", Threshold_box_size_, 51);
-  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 51);
+  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, -51);
 
   distance_ = 0;
 
@@ -484,17 +484,13 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     int  Lx_pos = Llane_current - margin; // win_xleft_low, win_xleft_high = win_xleft_low + margin*2
     int  Rx_pos = Rlane_current - margin; // win_xrignt_low, win_xright_high = win_xright_low + margin*2
     int  Ex_pos = Elane_current - margin; // win_xrignt_low, win_xright_high = win_xright_low + margin*2
-    if (_view && Lx_pos > 0) {
+    if (_view) {
       rectangle(result, \
         Rect(Lx_pos, Ly_pos, window_width, window_height), \
         Scalar(255, 50, 100), 1);
-    }
-    if (_view && Rx_pos > 0) {
       rectangle(result, \
         Rect(Rx_pos, Ry_pos, window_width, window_height), \
         Scalar(100, 50, 255), 1);
-    }
-    if (_view && Ex_pos > 0) {
       rectangle(result, \
         Rect(Ex_pos, Ey_pos, window_width, window_height), \
         Scalar(50, 255, 255), 1);
@@ -1138,7 +1134,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 
   /* adaptive Threshold */
   gpu_gray_frame.download(gray_frame);
-  adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
+  adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, Threshold_box_offset_);
 
   /* manual Threshold */
 //  cuda::threshold(gpu_gray_frame, gpu_binary_frame, threshold_, 255, THRESH_BINARY);
