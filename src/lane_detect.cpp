@@ -1138,12 +1138,12 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   cuda::cvtColor(gpu_blur_frame, gpu_gray_frame, COLOR_BGR2GRAY);
 
   /* adaptive Threshold */
-//  gpu_gray_frame.download(gray_frame);
-//  adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
-//
+  gpu_gray_frame.download(gray_frame);
+  adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
+
   /* manual Threshold */
-  cuda::threshold(gpu_gray_frame, gpu_binary_frame, threshold_, 255, THRESH_BINARY);
-  gpu_binary_frame.download(binary_frame);
+//  cuda::threshold(gpu_gray_frame, gpu_binary_frame, threshold_, 255, THRESH_BINARY);
+//  gpu_binary_frame.download(binary_frame);
 
   sliding_frame = detect_lines_sliding_window(binary_frame, _view);
   controlSteer();
