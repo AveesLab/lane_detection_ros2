@@ -102,6 +102,7 @@ private:
         bool controlDone_ = false;
         ros2_msg::msg::CmdData lane_coef_;
 	int center_select_;
+	bool ad_threshold_ = false;
 
 	//image
     	bool imageStatus_ = false;

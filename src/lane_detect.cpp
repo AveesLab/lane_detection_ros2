@@ -55,6 +55,7 @@ LaneDetector::LaneDetector()
   /***************/
   this->get_parameter_or("image_view/enable_opencv", viewImage_, true);
   this->get_parameter_or("rear_image_view/enable_opencv", rear_view_, false);
+  this->get_parameter_or("image_view/enable_adthreshold", ad_threshold_, true);
   this->get_parameter_or("image_view/wait_key_delay", waitKeyDelay_, 3);
 
 
@@ -135,7 +136,7 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("crop/height", crop_height_, 0);
 
   this->get_parameter_or("threshold/box_size", Threshold_box_size_, 51);
-  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, -51);
+  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 51);
 
   distance_ = 0;
 
@@ -1133,12 +1134,15 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   cuda::cvtColor(gpu_blur_frame, gpu_gray_frame, COLOR_BGR2GRAY);
 
   /* adaptive Threshold */
-  gpu_gray_frame.download(gray_frame);
-  adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, Threshold_box_offset_);
+  if(ad_threshold_) {
+    gpu_gray_frame.download(gray_frame);
+    adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
+  } 
+  else { /* manual Threshold */
+    cuda::threshold(gpu_gray_frame, gpu_binary_frame, threshold_, 255, THRESH_BINARY);
+    gpu_binary_frame.download(binary_frame);
+  }
 
-  /* manual Threshold */
-//  cuda::threshold(gpu_gray_frame, gpu_binary_frame, threshold_, 255, THRESH_BINARY);
-//  gpu_binary_frame.download(binary_frame);
 
   sliding_frame = detect_lines_sliding_window(binary_frame, _view);
   controlSteer();
