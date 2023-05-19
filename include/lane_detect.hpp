@@ -32,6 +32,8 @@
 
 #include "spline.h"
 
+#define _GUN_SOURCE
+
 using namespace cv;
 using namespace std;
 using namespace std::chrono_literals;
@@ -104,6 +106,10 @@ private:
 	int center_select_;
 	bool ad_threshold_ = false;
 
+	// lane change
+	bool E_flag = true;
+	bool E2_flag = true;
+
 	//image
     	bool imageStatus_ = false;
 	std_msgs::msg::Header imageHeader_;
@@ -131,6 +137,7 @@ private:
 	int last_Llane_base_;
 	int last_Rlane_base_;
 	int last_Elane_base_;
+	int last_E2lane_base_;
 
 	vector<int> left_lane_inds_;
 	vector<int> right_lane_inds_;
@@ -141,18 +148,26 @@ private:
 	vector<int> right_y_;
 	vector<int> extra_x_;
 	vector<int> extra_y_;
+	vector<int> extra2_x_;
+	vector<int> extra2_y_;
 	vector<int> center_x_;
 	vector<int> center_y_;
 	vector<int> center2_x_;
 	vector<int> center2_y_;
+	vector<int> center3_x_;
+	vector<int> center3_y_;
 	
-	vector<Point> left_lane_, right_lane_, extra_lane_;
+	int mark_;
+
+	vector<Point> left_lane_, right_lane_, extra_lane_, extra2_lane;
 
 	Mat left_coef_;
 	Mat right_coef_;
 	Mat extra_coef_;
+	Mat extra2_coef_;
 	Mat center_coef_;
 	Mat center2_coef_;
+	Mat center3_coef_;
 	float left_curve_radius_;
 	float right_curve_radius_;
 	float center_position_;
@@ -178,6 +193,7 @@ private:
 	int crop_x_, crop_y_, crop_width_, crop_height_;
 
 	int Threshold_box_size_, Threshold_box_offset_;
+
 };
 
 }
