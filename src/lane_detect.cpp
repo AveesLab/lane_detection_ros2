@@ -325,6 +325,79 @@ int LaneDetector::arrMaxIdx(int hist[], int start, int end, int Max) {
   return max_index;
 }
 
+std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
+    struct Cluster {
+        int centerIndex;
+        int maxValue;
+        int maxValueIndex;
+    };    
+    
+    // Prepare data for k-means
+    std::vector<cv::Point2f> points;
+    for (int i = 0; i < 640; ++i) {
+        for (int j = 0; j < hist[i]; ++j) {
+            points.push_back(cv::Point2f(i, j));
+        }
+    }
+
+    // K-means cluster
+    cv::Mat labels, centers;
+    cv::kmeans(points, cluster_num, labels,
+               cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0),
+               3, cv::KMEANS_PP_CENTERS, centers);
+
+    // Get the representative index of each cluster
+    std::vector<Cluster> clusters_info(cluster_num);
+    for (int i = 0; i < cluster_num; ++i) {
+        clusters_info[i] = {round(centers.at<float>(i, 0)), 0, -1};
+    }
+
+    // Calculate max value index for each cluster
+    for (int i = 0; i < points.size(); ++i) {
+        int label = labels.at<int>(i);
+        int pixel_count = points[i].y;
+        int index = points[i].x;
+        if (pixel_count > clusters_info[label].maxValue) {
+            clusters_info[label].maxValue = pixel_count;
+            clusters_info[label].maxValueIndex = index;
+        }
+    }    
+    
+    // Sort clusters by center index
+    std::sort(clusters_info.begin(), clusters_info.end(), [](const Cluster& a, const Cluster& b) {
+        return a.centerIndex < b.centerIndex;
+    });
+
+    std::vector<cv::Scalar> colors = { cv::Scalar(255, 0, 0), cv::Scalar(0, 255, 0), cv::Scalar(0, 0, 255), cv::Scalar(255, 255, 0)};  // BGR format
+
+    // Plot histogram and clusters
+    cv::Mat histogram = cv::Mat::zeros(480, 640, CV_8UC3);
+    for (int i = 0; i < 640; ++i) {
+        cv::line(histogram, cv::Point(i, 480), cv::Point(i, 480 - hist[i]), cv::Scalar(255, 255, 255));
+    }
+
+    for (int i = 0; i < points.size(); ++i) {
+        int label = labels.at<int>(i);
+        for (int j = 0; j < cluster_num; ++j) {
+            if (clusters_info[j].centerIndex == round(centers.at<float>(label, 0))) {
+                cv::circle(histogram, cv::Point(points[i].x, 480 - points[i].y), 2, colors[j], -1);
+                break;
+            }
+        }
+    }
+
+    cv::imshow("Histogram Clusters", histogram);
+    cv::waitKey(2);
+
+    // Prepare result
+    std::vector<int> result;
+    for (const auto& cluster : clusters_info) {
+        result.push_back(cluster.maxValueIndex);
+    }
+
+    return result;
+}
+
 Mat LaneDetector::polyfit(vector<int> x_val, vector<int> y_val) {
   Mat coef(3, 1, CV_32F);
   int i, j, k, n, N;
@@ -428,7 +501,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
         hist[i] += 1;
       }
     }
-  }  
+  } 
 
   cvtColor(frame, result, COLOR_GRAY2BGR);
 
@@ -455,7 +528,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   int Rlane_base = arrMaxIdx(hist, mid_point, width-100, width);
   int Elane_base = arrMaxIdx(hist, width-100, width, width);
 
+  // Assuming hist is populated with white pixel counts...
+//  int cluster_num = 3;
+//  std::vector<int> maxIndices = clusterHistogram(hist, cluster_num);    
+//  for (int i = 0; i < maxIndices.size(); ++i) {
+//      std::cout << "Max index for Cluster " << i << ": " << maxIndices[i] << std::endl;
+//  }
 
+  
   if (Llane_base == -1) {
     RCLCPP_ERROR(this->get_logger(), "Not Detection Llane_Base");
   }
@@ -470,7 +550,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 //    RCLCPP_INFO(this->get_logger(), "Not Detection E2lane_Base");
     E2_flag = false;
   } 
-  RCLCPP_INFO(this->get_logger(), "E2lane | Llane | Rlane | Elane | E2_flag | E_flag : %d | %d | %d | %d | %d | %d \n", E2lane_base, Llane_base, Rlane_base, Elane_base, E2_flag, E_flag);
+//  RCLCPP_INFO(this->get_logger(), "E2lane | Llane | Rlane | Elane | E2_flag | E_flag : %d | %d | %d | %d | %d | %d \n", E2lane_base, Llane_base, Rlane_base, Elane_base, E2_flag, E_flag);
 
   int Llane_current = Llane_base;
   int Rlane_current = Rlane_base;
@@ -993,16 +1073,16 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     
     temp_droi_point.y = (int)height_;
     temp_droi_point.x = 0;
-    droi_point_f.push_back(temp_droi_point);
+    droi_point_f.push_back(temp_droi_point); //droi[0]
     temp_droi_point.x = (int)width_;
-    droi_point_f.push_back(temp_droi_point);
+    droi_point_f.push_back(temp_droi_point); //droi[1]
     
     temp_droi_point.y = distance_;
     temp_droi_point.x = (int)width_;
-    droi_point_f.push_back(temp_droi_point);
+    droi_point_f.push_back(temp_droi_point); //droi[2]
     temp_droi_point.x = 0;
-    droi_point_f.push_back(temp_droi_point);
-    
+    droi_point_f.push_back(temp_droi_point); //droi[3]
+     
     perspectiveTransform(droi_point_f, warped_droi_point, trans);
     
     int droi_num[5] = {0, 1, 2, 3, 0};
@@ -1025,7 +1105,7 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     const Point* droi_points_point = (const cv::Point*) Mat(droi_points).data;
     int droi_points_number = Mat(droi_points).rows;
 
-//    polylines(_frame, &roi_points_point, &roi_points_number, 1, false, Scalar(0, 0, 255), 5);
+    polylines(_frame, &roi_points_point, &roi_points_number, 1, false, Scalar(0, 0, 255), 5);
     polylines(_frame, &droi_points_point, &droi_points_number, 1, false, Scalar(0, 255, 0), 5);
 
     string TEXT = "ROI";
@@ -1401,6 +1481,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 
     if(!new_frame.empty()) {
       resize(new_frame, new_frame, Size(640, 480));
+      cv::circle(new_frame, (corners_[0]), 20, (0,0,255), -1);
+      cv::circle(new_frame, (corners_[1]), 20, (0,0,255), -1);
+      cv::circle(new_frame, (corners_[2]), 20, (0,0,255), -1);
+      cv::circle(new_frame, (corners_[3]), 20, (0,0,255), -1);
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {

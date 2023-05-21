@@ -11,6 +11,9 @@
 #include <thread>
 #include <chrono>
 #include <sys/time.h>
+#include <algorithm>
+#include <limits>
+#include <random>
 
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.hpp>
@@ -72,6 +75,7 @@ public:
 private:
 	void LoadParams(void);
 	int arrMaxIdx(int hist[], int start, int end, int Max);
+	std::vector<int> clusterHistogram(int* hist, int clusters);
 	Mat polyfit(vector<int> x_val, vector<int> y_val);
 	Mat detect_lines_sliding_window(Mat _frame, bool _view);
 	Point warpPoint(Point center, Mat trans);
