@@ -113,6 +113,8 @@ private:
 	// lane change
 	bool E_flag = true;
 	bool E2_flag = true;
+        bool lc_right_flag = false;
+        bool lc_left_flag = false;
 
 	//image
     	bool imageStatus_ = false;
@@ -134,9 +136,9 @@ private:
 	int canny_thresh1_, canny_thresh2_;
 
 	/********** Lane_detect ***********/
-	vector<Point2f> corners_, fROIcorners_, lcROIcorners_;
-	vector<Point2f> warpCorners_, fROIwarpCorners_, lcROIwarpCorners_;
-	float wide_extra_upside_[2], wide_extra_downside_[2];
+	vector<Point2f> corners_, fROIcorners_, rROIcorners_, lROIcorners_;
+	vector<Point2f> warpCorners_, fROIwarpCorners_, rROIwarpCorners_, lROIwarpCorners_;
+        float wide_extra_upside_[3], wide_extra_downside_[3];
 
 	int last_Llane_base_;
 	int last_Rlane_base_;

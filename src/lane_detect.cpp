@@ -58,7 +58,6 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("image_view/enable_adthreshold", ad_threshold_, true);
   this->get_parameter_or("image_view/wait_key_delay", waitKeyDelay_, 3);
 
-
   /******* recording log *******/    
   gettimeofday(&start_, NULL);
 
@@ -108,8 +107,8 @@ LaneDetector::LaneDetector()
 
   e_values_.resize(3);
 
-  float t_gap[2], b_gap[2], t_height[2], b_height[2], f_extra[2], b_extra[2];
-  int top_gap[2], bot_gap[2], top_height[2], bot_height[2], extra_up[2], extra_down[2];
+  float t_gap[3], b_gap[3], t_height[3], b_height[3], f_extra[3], b_extra[3];
+  int top_gap[3], bot_gap[3], top_height[3], bot_height[3], extra_up[3], extra_down[3];
 
   this->get_parameter_or("ROI/dynamic_roi",option_, true);
   this->get_parameter_or("ROI/threshold",threshold_, 128);
@@ -125,19 +124,23 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/front_cam/extra_up",extra_up[0], 0);
   this->get_parameter_or("ROI/front_cam/extra_down",extra_down[0], 0);
 
-  this->get_parameter_or("ROI/lc_mode/top_gap",t_gap[1], 0.886f);
-  this->get_parameter_or("ROI/lc_mode/bot_gap",b_gap[1], 0.078f);
-  this->get_parameter_or("ROI/lc_mode/top_height",t_height[1], 0.903f);
-  this->get_parameter_or("ROI/lc_mode/bot_height",b_height[1], 0.528f);
-  this->get_parameter_or("ROI/lc_mode/extra_f",f_extra[1], 0.0f);
-  this->get_parameter_or("ROI/lc_mode/extra_b",b_extra[1], 0.0f);
-  this->get_parameter_or("ROI/lc_mode/extra_up",extra_up[1], 0);
-  this->get_parameter_or("ROI/lc_mode/extra_down",extra_down[1], 0);
+  this->get_parameter_or("ROI/wide_right/top_gap",t_gap[1], 0.886f);
+  this->get_parameter_or("ROI/wide_right/bot_gap",b_gap[1], 0.078f);
+  this->get_parameter_or("ROI/wide_right/top_height",t_height[1], 0.903f);
+  this->get_parameter_or("ROI/wide_right/bot_height",b_height[1], 0.528f);
+  this->get_parameter_or("ROI/wide_right/extra_f",f_extra[1], 0.0f);
+  this->get_parameter_or("ROI/wide_right/extra_b",b_extra[1], 0.0f);
+  this->get_parameter_or("ROI/wide_right/extra_up",extra_up[1], 0);
+  this->get_parameter_or("ROI/wide_right/extra_down",extra_down[1], 0);
 
-  this->get_parameter_or("crop/x", crop_x_, 100);
-  this->get_parameter_or("crop/y", crop_y_, 0);
-  this->get_parameter_or("crop/width", crop_width_, 0);
-  this->get_parameter_or("crop/height", crop_height_, 0);
+  this->get_parameter_or("ROI/wide_left/top_gap",t_gap[2], 0.886f);
+  this->get_parameter_or("ROI/wide_left/bot_gap",b_gap[2], 0.078f);
+  this->get_parameter_or("ROI/wide_left/top_height",t_height[2], 0.903f);
+  this->get_parameter_or("ROI/wide_left/bot_height",b_height[2], 0.528f);
+  this->get_parameter_or("ROI/wide_left/extra_f",f_extra[2], 0.0f);
+  this->get_parameter_or("ROI/wide_left/extra_b",b_extra[2], 0.0f);
+  this->get_parameter_or("ROI/wide_left/extra_up",extra_up[2], 0);
+  this->get_parameter_or("ROI/wide_left/extra_down",extra_down[2], 0);
 
   this->get_parameter_or("threshold/box_size", Threshold_box_size_, 51);
   this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 51);
@@ -170,8 +173,51 @@ LaneDetector::LaneDetector()
   fROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[0], height_);
   /*** front cam ROI setting ***/
 
-  std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
-  std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
+  /*** Wide Right ROI setting ***/
+  rROIcorners_.resize(4);
+  rROIwarpCorners_.resize(4);
+
+  top_gap[1] = width_ * t_gap[1];
+  bot_gap[1] = width_ * b_gap[1];
+  top_height[1] = height_ * t_height[1];
+  bot_height[1] = height_ * b_height[1];
+
+  rROIcorners_[0] = Point2f(top_gap[1]+f_extra[1], bot_height[1]);
+  rROIcorners_[1] = Point2f((width_ - top_gap[1])+f_extra[1], bot_height[1]);
+  rROIcorners_[2] = Point2f(bot_gap[1]+b_extra[1], top_height[1]);
+  rROIcorners_[3] = Point2f((width_ - bot_gap[1])+b_extra[1], top_height[1]);
+
+  wide_extra_upside_[1] = extra_up[1];
+  wide_extra_downside_[1] = extra_down[1];
+
+  rROIwarpCorners_[0] = Point2f(wide_extra_upside_[1], 0.0);
+  rROIwarpCorners_[1] = Point2f(width_ - wide_extra_upside_[1], 0.0);
+  rROIwarpCorners_[2] = Point2f(wide_extra_downside_[1], height_);
+  rROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[1], height_);
+  /*** Wide Right ROI setting ***/
+
+  /*** Wide left ROI setting ***/
+  lROIcorners_.resize(4);
+  lROIwarpCorners_.resize(4);
+
+  top_gap[2] = width_ * t_gap[2];
+  bot_gap[2] = width_ * b_gap[2];
+  top_height[2] = height_ * t_height[2];
+  bot_height[2] = height_ * b_height[2];
+
+  lROIcorners_[0] = Point2f(top_gap[2]+f_extra[2], bot_height[2]);
+  lROIcorners_[1] = Point2f((width_ - top_gap[2])+f_extra[2], bot_height[2]);
+  lROIcorners_[2] = Point2f(bot_gap[2]+b_extra[2], top_height[2]);
+  lROIcorners_[3] = Point2f((width_ - bot_gap[2])+b_extra[2], top_height[2]);
+
+  wide_extra_upside_[2] = extra_up[2];
+  wide_extra_downside_[2] = extra_down[2];
+
+  lROIwarpCorners_[0] = Point2f(wide_extra_upside_[2], 0.0);
+  lROIwarpCorners_[1] = Point2f(width_ - wide_extra_upside_[2], 0.0);
+  lROIwarpCorners_[2] = Point2f(wide_extra_downside_[2], height_);
+  lROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[2], height_);
+  /*** Wide left ROI setting ***/
 
   /* Lateral Control coefficient */
   this->get_parameter_or("params/K", K_, 0.15f);
@@ -199,6 +245,7 @@ LaneDetector::~LaneDetector(void)
   ros2_msg::msg::CmdData xav;
   xav.coef = lane_coef_.coef;
   xav.cur_angle = AngleDegree_;
+  xav.cur_angle2 = SteerAngle2_;
 
   XavPublisher_->publish(xav);
   lanedetect_Thread.join();
@@ -260,6 +307,9 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::CmdData::SharedPtr msg)
 
   get_steer_coef(cur_vel_);
   droi_ready_ = true;
+
+  lc_right_flag = msg->lc_right_flag;
+  lc_left_flag = msg->lc_left_flag;
 }
 
 void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg)
@@ -515,6 +565,8 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   int distance;
   E_flag = true;
   E2_flag = true;
+  if(!lc_right_flag) E_flag = false; // extra right lane is only need for right lc flag 
+  if(!lc_left_flag) E2_flag = false; // extra left lane is only need for left lc flag 
 
   if (option_) {
     window_height = (height >= distance_) ? ((height-distance_) / n_windows) : (height / n_windows);  // defalut = 53
@@ -523,10 +575,10 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     distance = 0;
     window_height = height / n_windows;
   }
-  int E2lane_base = arrMaxIdx(hist, 0, 100, width);
-  int Llane_base = arrMaxIdx(hist, 100, mid_point, width);
-  int Rlane_base = arrMaxIdx(hist, mid_point, width-100, width);
-  int Elane_base = arrMaxIdx(hist, width-100, width, width);
+  int E2lane_base = arrMaxIdx(hist, 0, 140, width);
+  int Llane_base = arrMaxIdx(hist, 140, mid_point, width);
+  int Rlane_base = arrMaxIdx(hist, mid_point, width-140, width);
+  int Elane_base = arrMaxIdx(hist, width-140, width, width);
 
   // Assuming hist is populated with white pixel counts...
 //  int cluster_num = 3;
@@ -1350,7 +1402,7 @@ void LaneDetector::get_steer_coef(float vel){
 void LaneDetector::controlSteer() {
   Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_), e_fit(extra_coef_), c2_fit(center2_coef_);
   float car_position = width_ / 2;
-  float l1 = 0, l2 = 0, l3 = 0;
+  float l1 = 0.0f, l2 = 0.0f, l3 = 0.0f;
   float i = ((float)height_) * eL_height_;  
   float j = ((float)height_) * trust_height_;
   float k = ((float)height_) * e1_height_;
@@ -1378,11 +1430,10 @@ void LaneDetector::controlSteer() {
     SteerAngle_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
   }
 
-
-  if ((!center2_coef_.empty())) { // for laneChange
+  // right lane change with cspline path
+  if ((!center2_coef_.empty()) && lc_right_flag) {
     mark_ = 1;
     tk::spline cspline_eq_ = cspline();
-    
 
     l3 = (float)cspline_eq_(i) - (float)cspline_eq_(j);
     e_values_[0] = (float)cspline_eq_(i) - car_position;  //eL
@@ -1392,7 +1443,20 @@ void LaneDetector::controlSteer() {
   
     target_x_ = e_values_[0];
     target_y_ = lp_;
+  }
+  // left lane change with cspline path
+  if ((!center3_coef_.empty()) && lc_left_flag) { 
+    mark_ = 2;
+    tk::spline cspline_eq_ = cspline();
 
+    l3 = (float)cspline_eq_(i) - (float)cspline_eq_(j);
+    e_values_[0] = (float)cspline_eq_(i) - car_position;  //eL
+    e_values_[1] = e_values_[0] - (lp_ * (l3 / l1));  //trust_e1
+    e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
+    SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+  
+    target_x_ = e_values_[0];
+    target_y_ = lp_;
   }
 }
 
@@ -1436,9 +1500,25 @@ if (mark_ == 2 && !center3_coef_.empty()) {
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {		
   Mat new_frame, gray_frame, edge_frame, binary_frame, sliding_frame, resized_frame, lc_frame;
   
+  /* apply ROI setting */
+  if(lc_right_flag) { // right lane change mode
+    std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
+    std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
+  }
+  else if(lc_left_flag) { // left lane change mode
+    std::copy(lROIcorners_.begin(), lROIcorners_.end(), corners_.begin());
+    std::copy(lROIwarpCorners_.begin(), lROIwarpCorners_.end(), warpCorners_.begin());
+  }
+  else { // normal mode
+    std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
+    std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
+  }
+
+  Mat trans = getPerspectiveTransform(corners_, warpCorners_);
+  /* End apply ROI setting */
+
   if(!_frame.empty()) resize(_frame, new_frame, Size(width_, height_));
-  Mat trans = getPerspectiveTransform(corners_, warpCorners_); /* apply ROI setting */
-  
+
   cuda::GpuMat gpu_map1, gpu_map2;
   gpu_map1.upload(map1_);
   gpu_map2.upload(map2_);
@@ -1489,6 +1569,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     }
     if(!sliding_frame.empty()) {
       resize(sliding_frame, sliding_frame, Size(640, 480));
+      cv::circle(sliding_frame, (warpCorners_[0]), 20, (0,0,255), -1);
+      cv::circle(sliding_frame, (warpCorners_[1]), 20, (0,0,255), -1);
+      cv::circle(sliding_frame, (warpCorners_[2]), 20, (0,0,255), -1);
+      cv::circle(sliding_frame, (warpCorners_[3]), 20, (0,0,255), -1);
       imshow("Window2", sliding_frame);
     }
 //    if(!resized_frame.empty()){
