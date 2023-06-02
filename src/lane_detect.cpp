@@ -545,7 +545,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     hist[i] = 0;
   }
 
-  for (int j = 0; j < height; j++) { 
+  for (int j = distance_; j < height; j++) { 
     for (int i = 0; i < width; i++) {
       if (frame.at <uchar>(j, i) == 255) {
         hist[i] += 1;
@@ -581,11 +581,24 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   int Elane_base = arrMaxIdx(hist, width-140, width, width);
 
   // Assuming hist is populated with white pixel counts...
-//  int cluster_num = 3;
-//  std::vector<int> maxIndices = clusterHistogram(hist, cluster_num);    
-//  for (int i = 0; i < maxIndices.size(); ++i) {
-//      std::cout << "Max index for Cluster " << i << ": " << maxIndices[i] << std::endl;
-//  }
+  if (E_flag == true || E2_flag == true) {
+    int cluster_num = 3;
+    std::vector<int> maxIndices = clusterHistogram(hist, cluster_num);    
+    for (int i = 0; i < maxIndices.size(); ++i) {
+        std::cout << "Max index for Cluster " << i << ": " << maxIndices[i] << std::endl;
+    }
+
+    if (E_flag == true) {
+      Llane_base = maxIndices[0];
+      Rlane_base = maxIndices[1];
+      Elane_base = maxIndices[2];
+    }
+    else if (E2_flag == true) {
+      E2lane_base = maxIndices[0];
+      Llane_base = maxIndices[1];
+      Rlane_base = maxIndices[2];
+    }
+  }
 
   
   if (Llane_base == -1) {
@@ -948,7 +961,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 
 //  printf("center | center2 : %d|%d\n", center_x_.front(), center2_x_.front());
 
-  if (center_diff_ != 0 || center2_diff_ != 0 || center_diff_ != 0) {
+  if (center_diff_ != 0 || center2_diff_ != 0 || center3_diff_ != 0) {
     if (center_diff_ < center2_diff_ && center_diff_ < center3_diff_) {
       center_select_ = 1;
     } else if (center2_diff_ < center_diff_ && center2_diff_ < center3_diff_) {
@@ -1400,7 +1413,7 @@ void LaneDetector::get_steer_coef(float vel){
 }
 
 void LaneDetector::controlSteer() {
-  Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_), e_fit(extra_coef_), c2_fit(center2_coef_);
+  Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_), e_fit(extra_coef_), e2_fit(extra2_coef_), c2_fit(center2_coef_), c3_fit(center3_coef_);
   float car_position = width_ / 2;
   float l1 = 0.0f, l2 = 0.0f, l3 = 0.0f;
   float i = ((float)height_) * eL_height_;  
@@ -1441,11 +1454,22 @@ void LaneDetector::controlSteer() {
     e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
     SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
   
-    target_x_ = e_values_[0];
-    target_y_ = lp_;
+//    target_x_ = e_values_[0];
+//    target_y_ = lp_;
+    lane_coef_.coef[0].a = r_fit.at<float>(2, 0);
+    lane_coef_.coef[0].b = r_fit.at<float>(1, 0);
+    lane_coef_.coef[0].c = r_fit.at<float>(0, 0);
+
+    lane_coef_.coef[1].a = e_fit.at<float>(2, 0);
+    lane_coef_.coef[1].b = e_fit.at<float>(1, 0);
+    lane_coef_.coef[1].c = e_fit.at<float>(0, 0);
+
+    lane_coef_.coef[2].a = c2_fit.at<float>(2, 0);
+    lane_coef_.coef[2].b = c2_fit.at<float>(1, 0);
+    lane_coef_.coef[2].c = c2_fit.at<float>(0, 0);
   }
   // left lane change with cspline path
-  if ((!center3_coef_.empty()) && lc_left_flag) { 
+  else if ((!center3_coef_.empty()) && lc_left_flag) { 
     mark_ = 2;
     tk::spline cspline_eq_ = cspline();
 
@@ -1455,44 +1479,61 @@ void LaneDetector::controlSteer() {
     e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
     SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
   
-    target_x_ = e_values_[0];
-    target_y_ = lp_;
+//    target_x_ = e_values_[0];
+//    target_y_ = lp_;
+    lane_coef_.coef[0].a = e2_fit.at<float>(2, 0);
+    lane_coef_.coef[0].b = e2_fit.at<float>(1, 0);
+    lane_coef_.coef[0].c = e2_fit.at<float>(0, 0);
+
+    lane_coef_.coef[1].a = l_fit.at<float>(2, 0);
+    lane_coef_.coef[1].b = l_fit.at<float>(1, 0);
+    lane_coef_.coef[1].c = l_fit.at<float>(0, 0);
+
+    lane_coef_.coef[2].a = c3_fit.at<float>(2, 0);
+    lane_coef_.coef[2].b = c3_fit.at<float>(1, 0);
+    lane_coef_.coef[2].c = c3_fit.at<float>(0, 0);
   }
 }
 
 tk::spline LaneDetector::cspline() {
-  float tY1_ = ((float)height_) * 0.3;
-  float tY2_ = ((float)height_) * 0.4;
-  float tY3_ = ((float)height_) * 0.5;
+  float tY1_ = ((float)height_) * 0.1;
+  float tY2_ = ((float)height_) * 0.2;
+  float tY3_ = ((float)height_) * 0.7;
 
   tk::spline cspline_eq;
 
-if(mark_ == 1 && !center2_coef_.empty()){
-  int tX1_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center2_coef_.at<float>(1, 0) * tY1_) + center2_coef_.at<float>(0, 0));
-  int tX2_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (center2_coef_.at<float>(1, 0) * tY2_) + center2_coef_.at<float>(0, 0));
-  int tX3_ = (int)((right_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (right_coef_.at<float>(1, 0) * tY3_) + right_coef_.at<float>(0, 0));
-
-//  std::vector<double> X = {(double)tX1_, (double)tX2_, (double)tX3_, (double)(width_/2)};
-//  std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)tY3_, (double)height_}; // 작은거 부터
-  std::vector<double> X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-  std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)height_}; // 작은거 부터
-
-  tk::spline s(Y, X, tk::spline::cspline); // s : lane2 coef
-  cspline_eq = s;
-}
-if (mark_ == 2 && !center3_coef_.empty()) {
-  int tX1_ = (int)((center3_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center3_coef_.at<float>(1, 0) * tY1_) + center3_coef_.at<float>(0, 0));
-  int tX2_ = (int)((center3_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (center3_coef_.at<float>(1, 0) * tY2_) + center3_coef_.at<float>(0, 0));
-  int tX3_ = (int)((right_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (right_coef_.at<float>(1, 0) * tY3_) + right_coef_.at<float>(0, 0));
-
-//  std::vector<double> X = {(double)tX1_, (double)tX2_, (double)tX3_, (double)(width_/2)};
-//  std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)tY3_, (double)height_}; // 작은거 부터
-  std::vector<double> X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-  std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)height_}; // 작은거 부터
-
-  tk::spline s(Y, X, tk::spline::cspline); // s : lane3 coef
-  cspline_eq = s;
-}
+  /*****************/
+  /* lc_right_coef */
+  /*****************/
+  if(mark_ == 1 && !center2_coef_.empty()){ 
+    int tX1_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center2_coef_.at<float>(1, 0) * tY1_) + center2_coef_.at<float>(0, 0));
+    int tX2_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (center2_coef_.at<float>(1, 0) * tY2_) + center2_coef_.at<float>(0, 0));
+    int tX3_ = (int)((right_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (right_coef_.at<float>(1, 0) * tY3_) + right_coef_.at<float>(0, 0));
+  
+//    std::vector<double> X = {(double)tX1_, (double)tX2_, (double)tX3_, (double)(width_/2)};
+//    std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)tY3_, (double)height_}; //오름차순
+      std::vector<double> X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
+      std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)height_}; 
+  
+    tk::spline s(Y, X, tk::spline::cspline); 
+    cspline_eq = s;
+  }
+  /****************/
+  /* lc_left_coef */
+  /****************/
+  else if (mark_ == 2 && !center3_coef_.empty()) { 
+    int tX1_ = (int)((center3_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center3_coef_.at<float>(1, 0) * tY1_) + center3_coef_.at<float>(0, 0));
+    int tX2_ = (int)((center3_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (center3_coef_.at<float>(1, 0) * tY2_) + center3_coef_.at<float>(0, 0));
+    int tX3_ = (int)((left_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (left_coef_.at<float>(1, 0) * tY3_) + left_coef_.at<float>(0, 0));
+  
+//    std::vector<double> X = {(double)tX1_, (double)tX2_, (double)tX3_, (double)(width_/2)};
+//    std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)tY3_, (double)height_}; //오름차순 
+    std::vector<double> X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
+    std::vector<double> Y = {(double)tY1_, (double)tY2_, (double)height_}; 
+  
+    tk::spline s(Y, X, tk::spline::cspline); 
+    cspline_eq = s;
+  }
 
   return cspline_eq;
 }
