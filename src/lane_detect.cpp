@@ -803,14 +803,12 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
       Llane_current = Lsum / _size;
       //left_x_.insert(left_x_.end(), Llane_current);
       //left_y_.insert(left_y_.end(), Ly_pos + (window_height / 2));
-      if(window == 0) {
-        prev_Llane_current = Llane_current;
-      }
     } 
     else {
       if (window == 0) {
-        L_gap = prev_L_gap;
         Llane_current = prev_Llane_current;
+      } else if (window == 1) {
+        Llane_current += prev_L_gap;
       }
       else
         Llane_current += (L_gap);
@@ -850,8 +848,9 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     }
     else {
       if (window == 0) {
-        R_gap = prev_R_gap;
         Rlane_current = prev_Rlane_current;
+      } else if (window == 1) {
+        Rlane_current += prev_R_gap;
       }
       else
         Rlane_current += (R_gap);
@@ -888,8 +887,9 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
       } 
       else {
         if (window == 0) {
-          E_gap = prev_E_gap;
           Elane_current = prev_Elane_current;
+        } else if (window == 1) {
+          Elane_current += prev_E_gap;
         }
 	else
           Elane_current += (E_gap);
@@ -927,8 +927,9 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
       } 
       else {
         if (window == 0) {
-          E2_gap = prev_E2_gap;
           E2lane_current = prev_E2lane_current;
+        } else if (window == 1) {
+          E2lane_current += prev_E2_gap;
         }
 	else
           E2lane_current += (E2_gap);
@@ -986,12 +987,16 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   // 2번째 보정 방법
   prev_L_gap = L_gap;
   prev_R_gap = R_gap;
-  prev_E_gap = E_gap;
-  prev_E2_gap = E2_gap;
   prev_Llane_current = Llane_base;
   prev_Rlane_current = Rlane_base;
-  prev_Elane_current = Elane_base;
-  prev_E2lane_current = E2lane_base;
+  if(E_gap != 0 || E2_gap != 0) {
+    prev_E_gap = E_gap;
+    prev_E2_gap = E2_gap;
+  }
+  if(Elane_base != 0 || E2lane_base != 0) {
+    prev_Elane_current = Elane_base;
+    prev_E2lane_current = E2lane_base;
+  }
 
   if (left_x_.size() != 0) {
     left_coef_ = polyfit(left_y_, left_x_);
