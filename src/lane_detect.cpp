@@ -256,7 +256,10 @@ LaneDetector::~LaneDetector(void)
 
 void LaneDetector::lanedetectInThread()
 {
+  double diff_time=0.0, CycleTime_=0.0;
+  int cnt = 0;
   const auto wait_duration = std::chrono::milliseconds(2000);
+
   while(!imageStatus_) {
     RCLCPP_INFO(this->get_logger(), "Waiting for image.\n");
     if(!isNodeRunning_) {
@@ -269,6 +272,9 @@ void LaneDetector::lanedetectInThread()
 
   while(!controlDone_ && rclcpp::ok()) 
   {
+    struct timeval start_time, end_time;
+    gettimeofday(&start_time, NULL);
+
     if(imageStatus_ && droi_ready_) {  
       AngleDegree_ = display_img(camImageCopy_, waitKeyDelay_, viewImage_);
       droi_ready_ = false;
@@ -282,14 +288,26 @@ void LaneDetector::lanedetectInThread()
       XavPublisher_->publish(xav);
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
     if(!isNodeRunning_) {
       controlDone_ = true;
       rclcpp::shutdown();
     }
-  }
 
+    gettimeofday(&end_time, NULL);
+    diff_time += ((end_time.tv_sec - start_time.tv_sec) * 1000.0) + ((end_time.tv_usec - start_time.tv_usec) / 1000.0);
+    cnt++;
+
+    CycleTime_ = diff_time / (double)cnt;
+
+    if (cnt > 3000){
+            diff_time = 0.0;
+            cnt = 0;
+    }
+//    RCLCPP_INFO(this->get_logger(), "CycleTime_: %.3f\n", CycleTime_);
+  }
 }
+
 void LaneDetector::LoadParams(void)
 {
   this->get_parameter_or("LaneDetector/eL_height",eL_height_, 1.0f);  
@@ -436,13 +454,17 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
         }
     }
 
-    cv::imshow("Histogram Clusters", histogram);
-    cv::waitKey(2);
-
     // Prepare result
     std::vector<int> result;
     for (const auto& cluster : clusters_info) {
         result.push_back(cluster.maxValueIndex);
+    }
+
+    if(viewImage_){
+//      namedWindow("Histogram Clusters");
+//      moveWindow("Histogram Clusters", 710, 700);
+//      cv::imshow("Histogram Clusters", histogram);
+//      cv::waitKey(2);
     }
 
     return result;
@@ -622,11 +644,6 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   int Elane_current = Elane_base;
   int E2lane_current = E2lane_base;
 
-//  if (last_Llane_base_!=0 || last_Rlane_base_!=0) {
-//    int Llane_current = Llane_base;
-//    int Rlane_current = Rlane_base;
-//  }
-
   int L_prev =  Llane_current;
   int R_prev =  Rlane_current;
   int E_prev =  Elane_current;
@@ -635,6 +652,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   int R_gap = 0;
   int E_gap = 0;
   int E2_gap = 0;
+  static int prev_L_gap = 0;
+  static int prev_R_gap = 0;
+  static int prev_E_gap = 0;
+  static int prev_E2_gap = 0;
+  static int prev_Llane_current = 0;
+  static int prev_Rlane_current = 0;
+  static int prev_Elane_current = 0;
+  static int prev_E2lane_current = 0;
 
   unsigned int index;
 
@@ -778,9 +803,19 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
       Llane_current = Lsum / _size;
       //left_x_.insert(left_x_.end(), Llane_current);
       //left_y_.insert(left_y_.end(), Ly_pos + (window_height / 2));
-    } else{
-      Llane_current += (L_gap);
+      if(window == 0) {
+        prev_Llane_current = Llane_current;
+      }
+    } 
+    else {
+      if (window == 0) {
+        L_gap = prev_L_gap;
+        Llane_current = prev_Llane_current;
+      }
+      else
+        Llane_current += (L_gap);
     }
+
     if (good_right_inds.size() > (size_t)min_pix) {
       _size = (unsigned int)(good_right_inds.size());
       for (int i = Ry_top - 1 ; i >= Ry_pos ; i--)
@@ -812,8 +847,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
       Rlane_current = Rsum / _size;
       //right_x_.insert(right_x_.end(), Rlane_current);
       //right_y_.insert(right_y_.end(), Ry_pos + (window_height / 2));
-    } else{
-      Rlane_current += (R_gap);
+    }
+    else {
+      if (window == 0) {
+        R_gap = prev_R_gap;
+        Rlane_current = prev_Rlane_current;
+      }
+      else
+        Rlane_current += (R_gap);
     }
 
     if(E_flag) {
@@ -844,13 +885,19 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           }
         }
         Elane_current = Esum / _size;
-      } else{
-        Elane_current += (E_gap);
+      } 
+      else {
+        if (window == 0) {
+          E_gap = prev_E_gap;
+          Elane_current = prev_Elane_current;
+        }
+	else
+          Elane_current += (E_gap);
       }
     }
 
     if (E2_flag) {
-      if ((good_extra2_inds.size() > (size_t)min_pix) && E2_flag) {
+      if ((good_extra2_inds.size() > (size_t)min_pix)) {
         _size = (unsigned int)(good_extra2_inds.size());
         for (int i = E2y_top - 1 ; i >= E2y_pos ; i--)
         {
@@ -877,8 +924,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           }
         }
         E2lane_current = E2sum / _size;
-      } else{
-        E2lane_current += (E2_gap);
+      } 
+      else {
+        if (window == 0) {
+          E2_gap = prev_E2_gap;
+          E2lane_current = prev_E2lane_current;
+        }
+	else
+          E2lane_current += (E2_gap);
       }
     }
 
@@ -930,7 +983,15 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     E_prev = Elane_current;
     E2_prev = E2lane_current;
   }
-
+  // 2번째 보정 방법
+  prev_L_gap = L_gap;
+  prev_R_gap = R_gap;
+  prev_E_gap = E_gap;
+  prev_E2_gap = E2_gap;
+  prev_Llane_current = Llane_base;
+  prev_Rlane_current = Rlane_base;
+  prev_Elane_current = Elane_base;
+  prev_E2lane_current = E2lane_base;
 
   if (left_x_.size() != 0) {
     left_coef_ = polyfit(left_y_, left_x_);
@@ -1602,24 +1663,24 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 
     if(!new_frame.empty()) {
       resize(new_frame, new_frame, Size(640, 480));
-      cv::circle(new_frame, (corners_[0]), 20, (0,0,255), -1);
-      cv::circle(new_frame, (corners_[1]), 20, (0,0,255), -1);
-      cv::circle(new_frame, (corners_[2]), 20, (0,0,255), -1);
-      cv::circle(new_frame, (corners_[3]), 20, (0,0,255), -1);
+//      cv::circle(new_frame, (corners_[0]), 20, (0,0,255), -1);
+//      cv::circle(new_frame, (corners_[1]), 20, (0,0,255), -1);
+//      cv::circle(new_frame, (corners_[2]), 20, (0,0,255), -1);
+//      cv::circle(new_frame, (corners_[3]), 20, (0,0,255), -1);
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {
       resize(sliding_frame, sliding_frame, Size(640, 480));
-      cv::circle(sliding_frame, (warpCorners_[0]), 20, (0,0,255), -1);
-      cv::circle(sliding_frame, (warpCorners_[1]), 20, (0,0,255), -1);
-      cv::circle(sliding_frame, (warpCorners_[2]), 20, (0,0,255), -1);
-      cv::circle(sliding_frame, (warpCorners_[3]), 20, (0,0,255), -1);
+//      cv::circle(sliding_frame, (warpCorners_[0]), 20, (0,0,255), -1);
+//      cv::circle(sliding_frame, (warpCorners_[1]), 20, (0,0,255), -1);
+//      cv::circle(sliding_frame, (warpCorners_[2]), 20, (0,0,255), -1);
+//      cv::circle(sliding_frame, (warpCorners_[3]), 20, (0,0,255), -1);
       imshow("Window2", sliding_frame);
     }
-//    if(!resized_frame.empty()){
-//      resize(resized_frame, resized_frame, Size(640, 480));
+    if(!resized_frame.empty()){
+      resize(resized_frame, resized_frame, Size(640, 480));
 //      imshow("Window3", resized_frame);
-//    }
+    }
 
     waitKey(_delay);
   }
