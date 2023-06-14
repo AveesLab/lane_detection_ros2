@@ -107,10 +107,12 @@ private:
         bool isNodeRunning_ = true;
         bool controlDone_ = false;
         ros2_msg::msg::CmdData lane_coef_;
-	int center_select_;
+	int center_select_ = 1;
 	bool ad_threshold_ = false;
 
 	// lane change
+	bool L_flag = true;
+	bool R_flag = true;
 	bool E_flag = true;
 	bool E2_flag = true;
         bool lc_right_flag = false;
@@ -121,6 +123,7 @@ private:
 	std_msgs::msg::Header imageHeader_;
         cv::Mat camImageCopy_;
 	float AngleDegree_;
+	cv::Mat prev_frame, prev2_frame;
 
         //rear
 	bool rear_view_ = false;
