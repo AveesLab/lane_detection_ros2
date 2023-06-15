@@ -408,12 +408,19 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
             points.push_back(cv::Point2f(i, j));
         }
     }
+    printf("points.size: %.3f\n", points.size());
 
     // K-means cluster
     cv::Mat labels, centers;
-    cv::kmeans(points, cluster_num, labels,
-               cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0),
-               3, cv::KMEANS_PP_CENTERS, centers);
+    try
+    {
+      cv::kmeans(points, cluster_num, labels,
+                 cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0),
+                 3, cv::KMEANS_PP_CENTERS, centers);
+    } catch (const cv::Exception& e) {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
+        std::cerr << "The error occurred in cv::kmeans()" << std::endl;
+    }
 
     // Get the representative index of each cluster
     std::vector<Cluster> clusters_info(cluster_num);
@@ -601,37 +608,37 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     window_height = height / n_windows;
   }
   
-//  int E2lane_base = arrMaxIdx(hist, 0, 140, width);
-//  int Llane_base = arrMaxIdx(hist, 140, mid_point, width);
-//  int Rlane_base = arrMaxIdx(hist, mid_point, width-140, width);
-//  int Elane_base = arrMaxIdx(hist, width-140, width, width);
-  int E2lane_base = 0, Llane_base = 0, Rlane_base = 0, Elane_base = 0;
+  int E2lane_base = arrMaxIdx(hist, 0, 140, width);
+  int Llane_base = arrMaxIdx(hist, 140, mid_point, width);
+  int Rlane_base = arrMaxIdx(hist, mid_point, width-140, width);
+  int Elane_base = arrMaxIdx(hist, width-140, width, width);
+//  int E2lane_base = 0, Llane_base = 0, Rlane_base = 0, Elane_base = 0;
   int cluster_num = 2;
   std::vector<int> maxIndices;
-
-  // 곡선에서 차선변경 완료될 경우 arrMaxIdx 고정 범위에서 벗어남
-  if(E_flag != true && E2_flag != true) {
-    maxIndices = clusterHistogram(hist, cluster_num);    
-    Llane_base = maxIndices[0];
-    Rlane_base = maxIndices[1];
-  }
-  else if (E_flag == true || E2_flag == true) {
+//
+//  // 곡선에서 차선변경 완료될 경우 arrMaxIdx 고정 범위에서 벗어남
+//  if(E_flag != true && E2_flag != true) {
+//    maxIndices = clusterHistogram(hist, cluster_num);    
+//    Llane_base = maxIndices[0];
+//    Rlane_base = maxIndices[1];
+//  }
+  if (E_flag == true || E2_flag == true) {
     cluster_num = 3;
     maxIndices = clusterHistogram(hist, cluster_num);    
     
-    // check for difference less than or equal to 60
-    for (size_t i = 0; i < maxIndices.size(); ++i) {
-        for (size_t j = i+1; j < maxIndices.size(); ++j) {
-            if (std::abs(maxIndices[i] - maxIndices[j]) <= 60) {
-                cluster_num = 2;
-                break;
-            }
-        }
-        if (cluster_num == 2) {
-            maxIndices = clusterHistogram(hist, cluster_num);    
-            break;
-        }
-    }
+//    // check for difference less than or equal to 60
+//    for (size_t i = 0; i < maxIndices.size(); ++i) {
+//        for (size_t j = i+1; j < maxIndices.size(); ++j) {
+//            if (std::abs(maxIndices[i] - maxIndices[j]) <= 60) {
+//                cluster_num = 2;
+//                break;
+//            }
+//        }
+//        if (cluster_num == 2) {
+//            maxIndices = clusterHistogram(hist, cluster_num);    
+//            break;
+//        }
+//    }
     if (cluster_num == 3) {
       if (E_flag == true) {
         Llane_base = maxIndices[0];
@@ -705,7 +712,6 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     E_flag = false;
     prev_Elane_current = 0;
     prev_E_gap = 0;
-    printf("33333333\n");
   } 
   if (E2lane_base == -1) {
 //    RCLCPP_INFO(this->get_logger(), "Not Detection E2lane_Base");
@@ -866,13 +872,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 	}
       }
       else {
-        if (window == 0 && prev_Llane_current != 0) {
-          Llane_current = prev_Llane_current;
-        } else if (window == 1 && prev_L_gap != 0) {
-          Llane_current += prev_L_gap;
-        } else {
-          Llane_current += (L_gap);
-	}
+//        if (window == 0 && prev_Llane_current != 0) {
+//          Llane_current = prev_Llane_current;
+//        } else if (window == 1 && prev_L_gap != 0) {
+//          Llane_current += prev_L_gap;
+//        } else {
+//          Llane_current += (L_gap);
+//	}
+        Llane_current += (L_gap);
       }
     }
 
@@ -909,13 +916,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 	}
       }
       else {
-        if (window == 0 && prev_Rlane_current != 0) {
-          Rlane_current = prev_Rlane_current;
-        } else if (window == 1 && prev_R_gap != 0) {
-          Rlane_current += prev_R_gap;
-        } else {
-          Rlane_current += (R_gap);
-	}
+//        if (window == 0 && prev_Rlane_current != 0) {
+//          Rlane_current = prev_Rlane_current;
+//        } else if (window == 1 && prev_R_gap != 0) {
+//          Rlane_current += prev_R_gap;
+//        } else {
+//          Rlane_current += (R_gap);
+//	}
+        Rlane_current += (R_gap);
       }
     }
 
@@ -953,13 +961,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 	}
       } 
       else {
-        if (window == 0 && prev_Elane_current != 0) {
-          Elane_current = prev_Elane_current;
-        } else if (window == 1 && prev_E_gap != 0) {
-          Elane_current += prev_E_gap;
-        } else {
-          Elane_current += (E_gap);
-	}
+//        if (window == 0 && prev_Elane_current != 0) {
+//          Elane_current = prev_Elane_current;
+//        } else if (window == 1 && prev_E_gap != 0) {
+//          Elane_current += prev_E_gap;
+//        } else {
+//          Elane_current += (E_gap);
+//	}
+        Elane_current += (E_gap);
       }
     }
 
@@ -1713,7 +1722,7 @@ tk::spline LaneDetector::cspline() {
 }
 
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {		
-  Mat new_frame, gray_frame, binary_frame, overlap_frame, diff_frame, sliding_frame, resized_frame;
+  Mat new_frame, gray_frame, binary_frame, overlap_frame, diff_frame, sliding_frame, resized_frame, blackPixels, inpainted;
   
   /* apply ROI setting */
   if(lc_right_flag) { // right lane change mode
@@ -1754,10 +1763,18 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   filters = cv::cuda::createGaussianFilter(gpu_warped_frame.type(), gpu_blur_frame.type(), cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
   filters->apply(gpu_warped_frame, gpu_blur_frame);
   cuda::cvtColor(gpu_blur_frame, gpu_gray_frame, COLOR_BGR2GRAY);
+  gpu_gray_frame.download(gray_frame);
+
+  for(int y = height_/2; y < gray_frame.rows; y++) {
+      for(int x = 0; x < gray_frame.cols; x++) {
+          if(gray_frame.at<uchar>(y, x) <= 30) {
+              gray_frame.at<uchar>(y, x) = 127;
+          }
+      }
+  }
 
   /* adaptive Threshold */
   if(ad_threshold_) {
-    gpu_gray_frame.download(gray_frame);
     adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
   } 
   else { /* manual Threshold */
@@ -1785,7 +1802,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //    moveWindow("Window3", 1340, 0);
 
     if(!new_frame.empty()) {
-      resize(new_frame, new_frame, Size(640, 480));
+      //resize(new_frame, new_frame, Size(640, 480));
+      resize(gray_frame, new_frame, Size(640, 480));
       cv::circle(new_frame, (corners_[0]), 10, (0,0,255), -1);
       cv::circle(new_frame, (corners_[1]), 10, (0,0,255), -1);
       cv::circle(new_frame, (corners_[2]), 10, (0,0,255), -1);
@@ -1793,7 +1811,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {
-      resize(sliding_frame, sliding_frame, Size(640, 480));
+      //resize(sliding_frame, sliding_frame, Size(640, 480));
+      resize(binary_frame, sliding_frame, Size(640, 480));
       cv::circle(sliding_frame, (warpCorners_[0]), 10, (0,0,255), -1);
       cv::circle(sliding_frame, (warpCorners_[1]), 10, (0,0,255), -1);
       cv::circle(sliding_frame, (warpCorners_[2]), 10, (0,0,255), -1);
