@@ -116,7 +116,9 @@ private:
 	bool E_flag = true;
 	bool E2_flag = true;
         bool lc_right_flag = false;
+        bool lc_right_flag_ = false;
         bool lc_left_flag = false;
+        bool lc_left_flag_ = false;
 
 	//image
     	bool imageStatus_ = false;

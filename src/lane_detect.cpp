@@ -590,8 +590,8 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   R_flag = true;
   E_flag = true;
   E2_flag = true;
-  if(!lc_right_flag) E_flag = false; // extra right lane is only need for right lc flag 
-  if(!lc_left_flag) E2_flag = false; // extra left lane is only need for left lc flag 
+  if(!lc_right_flag_) E_flag = false; // extra right lane is only need for right lc flag 
+  if(!lc_left_flag_) E2_flag = false; // extra left lane is only need for left lc flag 
 
   if (option_) {
     window_height = (height >= distance_) ? ((height-distance_) / n_windows) : (height / n_windows);  // defalut = 53
@@ -606,48 +606,63 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 //  int Rlane_base = arrMaxIdx(hist, mid_point, width-140, width);
 //  int Elane_base = arrMaxIdx(hist, width-140, width, width);
   int E2lane_base = 0, Llane_base = 0, Rlane_base = 0, Elane_base = 0;
-
   int cluster_num = 2;
-  std::vector<int> maxIndices = clusterHistogram(hist, cluster_num);    
-  Llane_base = maxIndices[0];
-  Rlane_base = maxIndices[1];
+  std::vector<int> maxIndices;
 
-  if (E_flag == true || E2_flag == true) {
+  // 곡선에서 차선변경 완료될 경우 arrMaxIdx 고정 범위에서 벗어남
+  if(E_flag != true && E2_flag != true) {
+    maxIndices = clusterHistogram(hist, cluster_num);    
+    Llane_base = maxIndices[0];
+    Rlane_base = maxIndices[1];
+  }
+  else if (E_flag == true || E2_flag == true) {
     cluster_num = 3;
-    std::vector<int> maxIndices = clusterHistogram(hist, cluster_num);    
-//    for (int i = 0; i < maxIndices.size(); ++i) {
-//        std::cout << "Max index for Cluster " << i << ": " << maxIndices[i] << std::endl;
-//    }
+    maxIndices = clusterHistogram(hist, cluster_num);    
+    
+    // check for difference less than or equal to 60
+    for (size_t i = 0; i < maxIndices.size(); ++i) {
+        for (size_t j = i+1; j < maxIndices.size(); ++j) {
+            if (std::abs(maxIndices[i] - maxIndices[j]) <= 60) {
+                cluster_num = 2;
+                break;
+            }
+        }
+        if (cluster_num == 2) {
+            maxIndices = clusterHistogram(hist, cluster_num);    
+            break;
+        }
+    }
+    if (cluster_num == 3) {
+      if (E_flag == true) {
+        Llane_base = maxIndices[0];
+        Rlane_base = maxIndices[1];
+        Elane_base = maxIndices[2];
+      }
+      else if (E2_flag == true) {
+        E2lane_base = maxIndices[0];
+        Llane_base = maxIndices[1];
+        Rlane_base = maxIndices[2];
+      }
+    } 
+    else if (cluster_num == 2) {
+      if (E_flag == true) {
+        Llane_base = -1;
+        Rlane_base = maxIndices[0];
+        Elane_base = maxIndices[1];
+      }
+      else if (E2_flag == true) {
+        E2lane_base = maxIndices[0];
+        Llane_base = maxIndices[1];
+        Rlane_base = -1;
+      }
+    }
 
-    if (E_flag == true) {
-      Llane_base = maxIndices[0];
-      Rlane_base = maxIndices[1];
-      Elane_base = maxIndices[2];
+    for (int i = 0; i < maxIndices.size(); ++i) {
+        std::cout << "Max index for Cluster " << i << ": " << maxIndices[i] << std::endl;
     }
-    else if (E2_flag == true) {
-      E2lane_base = maxIndices[0];
-      Llane_base = maxIndices[1];
-      Rlane_base = maxIndices[2];
-    }
+    printf("------------\n");
+
   }
-  
-  if (Llane_base == -1) {
-    RCLCPP_ERROR(this->get_logger(), "Not Detection Llane_Base");
-    L_flag = false;
-  }
-  if (Rlane_base == -1) {
-    RCLCPP_ERROR(this->get_logger(), "Not Detection Rlane_Base");
-    R_flag = false;
-  }
-  if (Elane_base == -1) {
-//    RCLCPP_INFO(this->get_logger(), "Not Detection Elane_Base");
-    E_flag = false;
-  } 
-  if (E2lane_base == -1) {
-//    RCLCPP_INFO(this->get_logger(), "Not Detection E2lane_Base");
-    E2_flag = false;
-  } 
-//  RCLCPP_INFO(this->get_logger(), "E2lane | Llane | Rlane | Elane | E2_flag | E_flag : %d | %d | %d | %d | %d | %d \n", E2lane_base, Llane_base, Rlane_base, Elane_base, E2_flag, E_flag);
 
   int Llane_current = Llane_base;
   int Rlane_current = Rlane_base;
@@ -672,6 +687,33 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   static int prev_E2lane_current = 0;
 
   unsigned int index;
+
+  if (Llane_base == -1) {
+    RCLCPP_ERROR(this->get_logger(), "Not Detection Llane_Base");
+    L_flag = false;
+    prev_Llane_current = 0;
+    prev_L_gap = 0;
+  }
+  if (Rlane_base == -1) {
+    RCLCPP_ERROR(this->get_logger(), "Not Detection Rlane_Base");
+    R_flag = false;
+    prev_Rlane_current = 0;
+    prev_R_gap = 0;
+  }
+  if (Elane_base == -1) {
+//    RCLCPP_INFO(this->get_logger(), "Not Detection Elane_Base");
+    E_flag = false;
+    prev_Elane_current = 0;
+    prev_E_gap = 0;
+    printf("33333333\n");
+  } 
+  if (E2lane_base == -1) {
+//    RCLCPP_INFO(this->get_logger(), "Not Detection E2lane_Base");
+    E2_flag = false;
+    prev_E2lane_current = 0;
+    prev_E2_gap = 0;
+  } 
+//  RCLCPP_INFO(this->get_logger(), "E2lane | Llane | Rlane | Elane | E2_flag | E_flag : %d | %d | %d | %d | %d | %d \n", E2lane_base, Llane_base, Rlane_base, Elane_base, E2_flag, E_flag);
 
   for (int window = 0; window < n_windows; window++) {
     int  Ly_pos = height - (window + 1) * window_height - 1; // win_y_low , win_y_high = win_y_low - window_height
@@ -819,17 +861,18 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           }
         }
         Llane_current = Lsum / _size;
+	if(window == 0) {
+          prev_Llane_current = Llane_base;
+	}
       }
       else {
-        Llane_current += (L_gap);
-//        if (window == 0 || window == 1) {
-//          Llane_current = prev_Llane_current;
-//        } 
-//	  else if (window == 1) {
-//          Llane_current += prev_L_gap;
-//        }
-//        else
-//          Llane_current += (L_gap);
+        if (window == 0 && prev_Llane_current != 0) {
+          Llane_current = prev_Llane_current;
+        } else if (window == 1 && prev_L_gap != 0) {
+          Llane_current += prev_L_gap;
+        } else {
+          Llane_current += (L_gap);
+	}
       }
     }
 
@@ -847,8 +890,6 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
               Ry_sum += nonZero.at<Point>(good_right_inds.at(index)).x;
               count++;
               Rsum += nonZero.at<Point>(good_right_inds.at(index)).x;
-              //right_x_.insert(right_x_.end(), nonZero.at<Point>(good_right_inds.at(index)).x);
-              //right_y_.insert(right_y_.end(), nonZero.at<Point>(good_right_inds.at(index)).y);
             }
           }
           if(count != 0)
@@ -863,20 +904,18 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           }
         }
         Rlane_current = Rsum / _size;
-        //right_x_.insert(right_x_.end(), Rlane_current);
-        //right_y_.insert(right_y_.end(), Ry_pos + (window_height / 2));
+	if(window == 0) {
+          prev_Rlane_current = Rlane_base;
+	}
       }
       else {
-        Rlane_current += (R_gap);
-//        if (window == 0) {
-//          Rlane_current = prev_Rlane_current;
-//        } 
-//	  else if (window == 1) {
-//          Rlane_current += prev_R_gap;
-//	    printf("win=1, prev_R_gap: %d\n", prev_R_gap);
-//        }
-//        else
-//          Rlane_current += (R_gap);
+        if (window == 0 && prev_Rlane_current != 0) {
+          Rlane_current = prev_Rlane_current;
+        } else if (window == 1 && prev_R_gap != 0) {
+          Rlane_current += prev_R_gap;
+        } else {
+          Rlane_current += (R_gap);
+	}
       }
     }
 
@@ -909,16 +948,18 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           }
         }
         Elane_current = Esum / _size;
+	if(window == 0) {
+          prev_Elane_current = Elane_base;
+	}
       } 
       else {
-        Elane_current += (E_gap);
-//        if (window == 0) {
-//          Elane_current = prev_Elane_current;
-//        } else if (window == 1) {
-//          Elane_current += prev_E_gap;
-//        }
-//	else
-//          Elane_current += (E_gap);
+        if (window == 0 && prev_Elane_current != 0) {
+          Elane_current = prev_Elane_current;
+        } else if (window == 1 && prev_E_gap != 0) {
+          Elane_current += prev_E_gap;
+        } else {
+          Elane_current += (E_gap);
+	}
       }
     }
 
@@ -950,31 +991,45 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           }
         }
         E2lane_current = E2sum / _size;
+	if(window == 0) {
+          prev_E2lane_current = E2lane_base;
+	}
       } 
       else {
-        E2lane_current += (E2_gap);
-//        if (window == 0) {
-//          E2lane_current = prev_E2lane_current;
-//        } else if (window == 1) {
-//          E2lane_current += prev_E2_gap;
-//        }
-//	else
-//          E2lane_current += (E2_gap);
+        if (window == 0 && prev_E2lane_current != 0) {
+          E2lane_current = prev_E2lane_current;
+        } else if (window == 1 && prev_E2_gap != 0) {
+          E2lane_current += prev_E2_gap;
+        } else {
+          E2lane_current += (E2_gap);
+	}
       }
     }
 
     if (window != 0) {  
       if (Rlane_current != R_prev) {
         R_gap = (Rlane_current - R_prev);
+	if(window == 1) {
+	  prev_R_gap = R_gap;
+	}
       }
       if (Llane_current != L_prev) {
         L_gap = (Llane_current - L_prev);
+	if(window == 1) {
+	  prev_L_gap = L_gap;
+	}
       }
       if((Elane_current != E_prev) && E_flag) {
         E_gap = (Elane_current - E_prev);
+	if(window == 1) {
+	  prev_E_gap = E_gap;
+	}
       }
       if ((E2lane_current != E2_prev) && E2_flag) {
         E2_gap = (E2lane_current - E2_prev);
+	if(window == 1) {
+	  prev_E2_gap = E2_gap;
+	}
       }
     }
     /* center1  */
@@ -1013,20 +1068,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     E_prev = Elane_current;
     E2_prev = E2lane_current;
   }
-  // 2번째 보정 방법
-//  prev_L_gap = L_gap;
-//  prev_R_gap = R_gap;
-//  prev_Llane_current = Llane_base;
-//  prev_Rlane_current = Rlane_base;
-//  if(E_gap != 0 || E2_gap != 0) {
-//    prev_E_gap = E_gap;
-//    prev_E2_gap = E2_gap;
-//  }
-//  if(Elane_base != 0 || E2lane_base != 0) {
-//    prev_Elane_current = Elane_base;
-//    prev_E2lane_current = E2lane_base;
-//  }
-
+  
   if (left_x_.size() != 0) {
     left_coef_ = polyfit(left_y_, left_x_);
   }
@@ -1552,7 +1594,7 @@ void LaneDetector::controlSteer() {
   }
 
   // right lane change with cspline path
-  if ((!center2_coef_.empty()) && lc_right_flag) {
+  if ((!center2_coef_.empty()) && lc_right_flag_) {
     mark_ = 1;
     tk::spline cspline_eq_ = cspline();
 
@@ -1577,7 +1619,7 @@ void LaneDetector::controlSteer() {
     lane_coef_.coef[2].c = c2_fit.at<float>(0, 0);
   }
   // left lane change with cspline path
-  else if ((!center3_coef_.empty()) && lc_left_flag) { 
+  else if ((!center3_coef_.empty()) && lc_left_flag_) { 
     mark_ = 2;
     tk::spline cspline_eq_ = cspline();
 
@@ -1606,8 +1648,9 @@ void LaneDetector::controlSteer() {
 tk::spline LaneDetector::cspline() {
   float tY1_ = ((float)height_) * 0;
   float tY2_ = ((float)height_) * 0.1;
-  float tY3_ = ((float)height_) * 0.5;
-  float tY4_ = ((float)height_) * e1_height_;
+  float tY3_ = ((float)height_) * 0;
+  float tY4_ = ((float)height_) * 0.1;
+  float tY5_ = ((float)height_) * e1_height_;
   
   std::vector<double> X;
   std::vector<double> Y; 
@@ -1619,23 +1662,22 @@ tk::spline LaneDetector::cspline() {
   /* lc_right_coef */
   /*****************/
   if (mark_ == 1 && !right_coef_.empty() && !center2_coef_.empty()) { 
-    int tX1_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center2_coef_.at<float>(1, 0) * tY1_) + center2_coef_.at<float>(0, 0));
-    int tX2_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (center2_coef_.at<float>(1, 0) * tY2_) + center2_coef_.at<float>(0, 0));
-    int tX3_ = (int)((right_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (right_coef_.at<float>(1, 0) * tY3_) + right_coef_.at<float>(0, 0));
+    int tX1_ = (int)((right_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (right_coef_.at<float>(1, 0) * tY1_) + right_coef_.at<float>(0, 0));
+    int tX2_ = (int)((right_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (right_coef_.at<float>(1, 0) * tY2_) + right_coef_.at<float>(0, 0));
+    int tX3_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (center2_coef_.at<float>(1, 0) * tY3_) + center2_coef_.at<float>(0, 0));
+    int tX4_ = (int)((center2_coef_.at<float>(2, 0) * pow(tY4_, 2)) + (center2_coef_.at<float>(1, 0) * tY4_) + center2_coef_.at<float>(0, 0));
   
     if (center_select_ == 1) {
-      X = {(double)tX1_, (double)tX3_, (double)(width_/2)};
-      Y = {(double)tY1_, (double)tY3_, (double)tY4_}; //오름차순
+      X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
+      Y = {(double)tY1_, (double)tY2_, (double)tY5_}; //오름차순
     } 
     else if (center_select_ == 2) {
-      X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-      Y = {(double)tY1_, (double)tY2_, (double)tY4_}; 
+      X = {(double)tX3_, (double)tX4_, (double)(width_/2)};
+      Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
     }
     else {
-      printf("1111111111\n");
-      printf("center_select: %d", center_select_);
-      X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-      Y = {(double)tY1_, (double)tY2_, (double)tY4_}; 
+      X = {(double)tX3_, (double)tX4_, (double)(width_/2)};
+      Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
     }
   
     tk::spline s(Y, X, tk::spline::cspline); 
@@ -1645,21 +1687,22 @@ tk::spline LaneDetector::cspline() {
   /* lc_left_coef */
   /****************/
   else if (mark_ == 2 && !left_coef_.empty() && !center3_coef_.empty()) { 
-    int tX1_ = (int)((center3_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (center3_coef_.at<float>(1, 0) * tY1_) + center3_coef_.at<float>(0, 0));
-    int tX2_ = (int)((center3_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (center3_coef_.at<float>(1, 0) * tY2_) + center3_coef_.at<float>(0, 0));
-    int tX3_ = (int)((left_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (left_coef_.at<float>(1, 0) * tY3_) + left_coef_.at<float>(0, 0));
+    int tX1_ = (int)((left_coef_.at<float>(2, 0) * pow(tY1_, 2)) + (left_coef_.at<float>(1, 0) * tY1_) + left_coef_.at<float>(0, 0));
+    int tX2_ = (int)((left_coef_.at<float>(2, 0) * pow(tY2_, 2)) + (left_coef_.at<float>(1, 0) * tY2_) + left_coef_.at<float>(0, 0));
+    int tX3_ = (int)((center3_coef_.at<float>(2, 0) * pow(tY3_, 2)) + (center3_coef_.at<float>(1, 0) * tY3_) + center3_coef_.at<float>(0, 0));
+    int tX4_ = (int)((center3_coef_.at<float>(2, 0) * pow(tY4_, 2)) + (center3_coef_.at<float>(1, 0) * tY4_) + center3_coef_.at<float>(0, 0));
   
     if (center_select_ == 1) {
-      X = {(double)tX1_, (double)tX3_, (double)(width_/2)};
-      Y = {(double)tY1_, (double)tY3_, (double)tY4_}; //오름차순
+      X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
+      Y = {(double)tY1_, (double)tY2_, (double)tY5_}; //오름차순
     } 
     else if (center_select_ == 2) {
-      X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-      Y = {(double)tY1_, (double)tY2_, (double)tY4_}; 
+      X = {(double)tX3_, (double)tX4_, (double)(width_/2)};
+      Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
     }
     else {
-      X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-      Y = {(double)tY1_, (double)tY2_, (double)tY4_}; 
+      X = {(double)tX3_, (double)tX4_, (double)(width_/2)};
+      Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
     }
   
     tk::spline s(Y, X, tk::spline::cspline); 
@@ -1676,18 +1719,18 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   if(lc_right_flag) { // right lane change mode
     std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
     std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
-//    if(center_select_ == 2) {
-//      std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
-//      std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
-//    }
+    lc_right_flag_ = true;
   }
   else if(lc_left_flag) { // left lane change mode
     std::copy(lROIcorners_.begin(), lROIcorners_.end(), corners_.begin());
     std::copy(lROIwarpCorners_.begin(), lROIwarpCorners_.end(), warpCorners_.begin());
+    lc_left_flag_ = true;
   }
   else { // normal mode
     std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
     std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
+    lc_right_flag_ = false; 
+    lc_left_flag_ = false; 
   }
 
   Mat trans = getPerspectiveTransform(corners_, warpCorners_);
