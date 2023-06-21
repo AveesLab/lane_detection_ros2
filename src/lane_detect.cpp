@@ -408,7 +408,6 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
             points.push_back(cv::Point2f(i, j));
         }
     }
-    printf("points.size: %.3f\n", points.size());
 
     // K-means cluster
     cv::Mat labels, centers;
@@ -420,6 +419,11 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
     } catch (const cv::Exception& e) {
         std::cerr << "Exception caught: " << e.what() << std::endl;
         std::cerr << "The error occurred in cv::kmeans()" << std::endl;
+        std::vector<int> result;
+        for (int i = 0; i < cluster_num; i++) {
+            result.push_back(-1);
+        }
+        return result;
     }
 
     // Get the representative index of each cluster
@@ -436,6 +440,9 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
         if (pixel_count > clusters_info[label].maxValue) {
             clusters_info[label].maxValue = pixel_count;
             clusters_info[label].maxValueIndex = index;
+	    if(pixel_count <= 30) { // min_pixel in cluster
+              clusters_info[label].maxValueIndex = -1;
+	    }
         }
     }    
     
@@ -446,17 +453,17 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
 
     std::vector<cv::Scalar> colors = { cv::Scalar(255, 0, 0), cv::Scalar(0, 255, 0), cv::Scalar(0, 0, 255), cv::Scalar(255, 255, 0)};  // BGR format
 
-    // Plot histogram and clusters
-    cv::Mat histogram = cv::Mat::zeros(480, 640, CV_8UC3);
+    // Plot cluster_frame and clusters
+    cluster_frame = cv::Mat::zeros(480, 640, CV_8UC3);
     for (int i = 0; i < 640; ++i) {
-        cv::line(histogram, cv::Point(i, 480), cv::Point(i, 480 - hist[i]), cv::Scalar(255, 255, 255));
+        cv::line(cluster_frame, cv::Point(i, 480), cv::Point(i, 480 - hist[i]), cv::Scalar(255, 255, 255));
     }
 
     for (int i = 0; i < points.size(); ++i) {
         int label = labels.at<int>(i);
         for (int j = 0; j < cluster_num; ++j) {
             if (clusters_info[j].centerIndex == round(centers.at<float>(label, 0))) {
-                cv::circle(histogram, cv::Point(points[i].x, 480 - points[i].y), 2, colors[j], -1);
+                cv::circle(cluster_frame, cv::Point(points[i].x, 480 - points[i].y), 2, colors[j], -1);
                 break;
             }
         }
@@ -471,7 +478,7 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
     if(viewImage_){
       namedWindow("Histogram Clusters");
       moveWindow("Histogram Clusters", 710, 700);
-      cv::imshow("Histogram Clusters", histogram);
+      cv::imshow("Histogram Clusters", cluster_frame);
       cv::waitKey(2);
     }
 
@@ -575,6 +582,8 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     hist[i] = 0;
   }
 
+//  distance: 위 아래 군집 형성
+//  for (int j = distance_; j < height; j++) { 
   for (int j = height/2; j < height; j++) { 
     for (int i = 0; i < width; i++) {
       if (frame.at <uchar>(j, i) == 255) {
@@ -626,19 +635,22 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     cluster_num = 3;
     maxIndices = clusterHistogram(hist, cluster_num);    
     
-//    // check for difference less than or equal to 60
-//    for (size_t i = 0; i < maxIndices.size(); ++i) {
-//        for (size_t j = i+1; j < maxIndices.size(); ++j) {
-//            if (std::abs(maxIndices[i] - maxIndices[j]) <= 60) {
-//                cluster_num = 2;
-//                break;
-//            }
-//        }
-//        if (cluster_num == 2) {
-//            maxIndices = clusterHistogram(hist, cluster_num);    
-//            break;
-//        }
-//    }
+    // check for difference less than or equal to 60
+    for (size_t i = 0; i < maxIndices.size(); ++i) {
+        if(maxIndices[i] == -1) {
+          cluster_num = 2;
+        }	  
+        for (size_t j = i+1; j < maxIndices.size(); ++j) {
+            if (std::abs(maxIndices[i] - maxIndices[j]) <= 60) {
+                cluster_num = 2;
+                break;
+            }
+        }
+    }
+    if (cluster_num == 2) {
+        maxIndices = clusterHistogram(hist, cluster_num);    
+    }
+  
     if (cluster_num == 3) {
       if (E_flag == true) {
         Llane_base = maxIndices[0];
@@ -663,12 +675,6 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
         Rlane_base = -1;
       }
     }
-
-    for (int i = 0; i < maxIndices.size(); ++i) {
-        std::cout << "Max index for Cluster " << i << ": " << maxIndices[i] << std::endl;
-    }
-    printf("------------\n");
-
   }
 
   int Llane_current = Llane_base;
@@ -1005,13 +1011,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 	}
       } 
       else {
-        if (window == 0 && prev_E2lane_current != 0) {
-          E2lane_current = prev_E2lane_current;
-        } else if (window == 1 && prev_E2_gap != 0) {
-          E2lane_current += prev_E2_gap;
-        } else {
-          E2lane_current += (E2_gap);
-	}
+//        if (window == 0 && prev_E2lane_current != 0) {
+//          E2lane_current = prev_E2lane_current;
+//        } else if (window == 1 && prev_E2_gap != 0) {
+//          E2lane_current += prev_E2_gap;
+//        } else {
+//          E2lane_current += (E2_gap);
+//	}
+        E2lane_current += (E2_gap);
       }
     }
 
@@ -1678,15 +1685,18 @@ tk::spline LaneDetector::cspline() {
   
     if (center_select_ == 1) {
       X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-      Y = {(double)tY1_, (double)tY2_, (double)tY5_}; //오름차순
+      //Y = {(double)tY1_, (double)tY2_, (double)tY5_}; //오름차순
+      Y = {(double)tY1_, (double)tY2_, (double)height_}; //오름차순
     } 
     else if (center_select_ == 2) {
       X = {(double)tX3_, (double)tX4_, (double)(width_/2)};
-      Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
+      //Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
+      Y = {(double)tY3_, (double)tY4_, (double)height_}; 
     }
     else {
       X = {(double)tX3_, (double)tX4_, (double)(width_/2)};
-      Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
+      //Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
+      Y = {(double)tY3_, (double)tY4_, (double)height_}; 
     }
   
     tk::spline s(Y, X, tk::spline::cspline); 
@@ -1703,15 +1713,18 @@ tk::spline LaneDetector::cspline() {
   
     if (center_select_ == 1) {
       X = {(double)tX1_, (double)tX2_, (double)(width_/2)};
-      Y = {(double)tY1_, (double)tY2_, (double)tY5_}; //오름차순
+      //Y = {(double)tY1_, (double)tY2_, (double)tY5_}; //오름차순
+      Y = {(double)tY1_, (double)tY2_, (double)height_}; //오름차순
     } 
     else if (center_select_ == 2) {
       X = {(double)tX3_, (double)tX4_, (double)(width_/2)};
-      Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
+      //Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
+      Y = {(double)tY3_, (double)tY4_, (double)height_}; 
     }
     else {
       X = {(double)tX3_, (double)tX4_, (double)(width_/2)};
-      Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
+      //Y = {(double)tY3_, (double)tY4_, (double)tY5_}; 
+      Y = {(double)tY3_, (double)tY4_, (double)height_}; 
     }
   
     tk::spline s(Y, X, tk::spline::cspline); 
@@ -1767,8 +1780,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 
   for(int y = height_/2; y < gray_frame.rows; y++) {
       for(int x = 0; x < gray_frame.cols; x++) {
-          if(gray_frame.at<uchar>(y, x) <= 30) {
-              gray_frame.at<uchar>(y, x) = 127;
+          if(gray_frame.at<uchar>(y, x) == 0) {
+              gray_frame.at<uchar>(y, x) = 100;
           }
       }
   }
@@ -1800,10 +1813,12 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     moveWindow("Window2", 710, 0);
 //    namedWindow("Window3");
 //    moveWindow("Window3", 1340, 0);
+//    namedWindow("Histogram Clusters");
+//    moveWindow("Histogram Clusters", 710, 700);
 
     if(!new_frame.empty()) {
-      //resize(new_frame, new_frame, Size(640, 480));
-      resize(gray_frame, new_frame, Size(640, 480));
+      resize(new_frame, new_frame, Size(640, 480));
+      //resize(gray_frame, new_frame, Size(640, 480));
       cv::circle(new_frame, (corners_[0]), 10, (0,0,255), -1);
       cv::circle(new_frame, (corners_[1]), 10, (0,0,255), -1);
       cv::circle(new_frame, (corners_[2]), 10, (0,0,255), -1);
@@ -1811,8 +1826,9 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {
-      //resize(sliding_frame, sliding_frame, Size(640, 480));
-      resize(binary_frame, sliding_frame, Size(640, 480));
+      resize(sliding_frame, sliding_frame, Size(640, 480));
+      //resize(binary_frame, sliding_frame, Size(640, 480));
+      cv::circle(sliding_frame, (Point2f(width_/2, height_)), 20, (0,0,255), -1);
       cv::circle(sliding_frame, (warpCorners_[0]), 10, (0,0,255), -1);
       cv::circle(sliding_frame, (warpCorners_[1]), 10, (0,0,255), -1);
       cv::circle(sliding_frame, (warpCorners_[2]), 10, (0,0,255), -1);
@@ -1822,6 +1838,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     if(!resized_frame.empty()){
       resize(resized_frame, resized_frame, Size(640, 480));
       //imshow("Window3", resized_frame);
+    }
+    if(!cluster_frame.empty()){
+      resize(cluster_frame, cluster_frame, Size(640, 480));
+      //imshow("Histogram Clusters", cluster_frame);
     }
 
     waitKey(_delay);

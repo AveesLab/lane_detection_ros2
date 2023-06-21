@@ -126,6 +126,7 @@ private:
         cv::Mat camImageCopy_;
 	float AngleDegree_;
 	cv::Mat prev_frame, prev2_frame;
+	cv::Mat cluster_frame;
 
         //rear
 	bool rear_view_ = false;
