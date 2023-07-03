@@ -1123,7 +1123,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
       center_select_ = 1;
     } else if (center2_diff_ < center_diff_ && center2_diff_ < center3_diff_) {
       center_select_ = 2;
-    } else {
+    } else if (center3_diff_ < center_diff_ && center3_diff_ < center2_diff_) {
       center_select_ = 3;
     }
   }
@@ -1843,6 +1843,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       resize(cluster_frame, cluster_frame, Size(640, 480));
       //imshow("Histogram Clusters", cluster_frame);
     }
+
 
     waitKey(_delay);
   }
