@@ -31,7 +31,8 @@
 
 //ROS2
 #include "rclcpp/rclcpp.hpp"
-#include "ros2_msg/msg/cmd_data.hpp"
+#include "ros2_msg/msg/xav2lane.hpp"
+#include "ros2_msg/msg/lane2xav.hpp"
 
 #include "spline.h"
 
@@ -89,15 +90,15 @@ private:
 	tk::spline cspline();
 
 	//Publisher
-        rclcpp::Publisher<ros2_msg::msg::CmdData>::SharedPtr XavPublisher_;
+        rclcpp::Publisher<ros2_msg::msg::Lane2xav>::SharedPtr XavPublisher_;
 
         //Subscriber
-        rclcpp::Subscription<ros2_msg::msg::CmdData>::SharedPtr XavSubscriber_;
+        rclcpp::Subscription<ros2_msg::msg::Xav2lane>::SharedPtr XavSubscriber_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr ImageSubscriber_;
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr rearImageSubscriber_;
     
     	//Callback Func
-        void XavSubCallback(const ros2_msg::msg::CmdData::SharedPtr msg);
+        void XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg);
         void ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg);
         void rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg);
 
@@ -106,7 +107,7 @@ private:
 	bool droi_ready_ = false;
         bool isNodeRunning_ = true;
         bool controlDone_ = false;
-        ros2_msg::msg::CmdData lane_coef_;
+        ros2_msg::msg::Lane2xav lane_coef_;
 	int center_select_ = 1;
 	bool ad_threshold_ = false;
 

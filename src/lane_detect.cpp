@@ -39,7 +39,7 @@ LaneDetector::LaneDetector()
   /************************/
   /* Ros Topic Subscriber */
   /************************/
-  XavSubscriber_ = this->create_subscription<ros2_msg::msg::CmdData>(XavSubTopicName, XavSubQueueSize, std::bind(&LaneDetector::XavSubCallback, this, std::placeholders::_1));
+  XavSubscriber_ = this->create_subscription<ros2_msg::msg::Xav2lane>(XavSubTopicName, XavSubQueueSize, std::bind(&LaneDetector::XavSubCallback, this, std::placeholders::_1));
 
   ImageSubscriber_ = this->create_subscription<sensor_msgs::msg::Image>(ImageSubTopicName, ImageSubQueueSize, std::bind(&LaneDetector::ImageSubCallback, this, std::placeholders::_1));
 
@@ -48,7 +48,7 @@ LaneDetector::LaneDetector()
   /***********************/
   /* Ros Topic Publisher */
   /***********************/
-  XavPublisher_ = this->create_publisher<ros2_msg::msg::CmdData>(XavPubTopicName, XavPubQueueSize);
+  XavPublisher_ = this->create_publisher<ros2_msg::msg::Lane2xav>(XavPubTopicName, XavPubQueueSize);
 
   /***************/
   /* View Option */
@@ -242,7 +242,7 @@ LaneDetector::~LaneDetector(void)
 {
   isNodeRunning_ = false;
 
-  ros2_msg::msg::CmdData xav;
+  ros2_msg::msg::Lane2xav xav;
   xav.coef = lane_coef_.coef;
   xav.cur_angle = AngleDegree_;
   xav.cur_angle2 = SteerAngle2_;
@@ -268,7 +268,7 @@ void LaneDetector::lanedetectInThread()
     std::this_thread::sleep_for(wait_duration);
   }
 
-  ros2_msg::msg::CmdData xav;
+  ros2_msg::msg::Lane2xav xav;
 
   while(!controlDone_ && rclcpp::ok()) 
   {
@@ -318,7 +318,7 @@ void LaneDetector::LoadParams(void)
   this->get_parameter_or("LaneDetector/steer_angle2",SteerAngle2_, 0.0f);
 }
 
-void LaneDetector::XavSubCallback(const ros2_msg::msg::CmdData::SharedPtr msg)
+void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
   float cur_vel_ = msg->cur_vel;
   distance_ = msg->cur_dist;
@@ -1659,6 +1659,7 @@ void LaneDetector::controlSteer() {
     lane_coef_.coef[2].b = c3_fit.at<float>(1, 0);
     lane_coef_.coef[2].c = c3_fit.at<float>(0, 0);
   }
+  
 }
 
 tk::spline LaneDetector::cspline() {
