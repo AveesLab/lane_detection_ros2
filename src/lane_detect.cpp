@@ -221,11 +221,15 @@ LaneDetector::LaneDetector()
 
   /* Lateral Control coefficient */
   this->get_parameter_or("params/K", K_, 0.15f);
+  this->get_parameter_or("params/K3", K3_, 0.15f);
+  this->get_parameter_or("params/K4", K4_, 0.15f);
+
   this->get_parameter_or("params/a/a", a_[0], 0.);
   this->get_parameter_or("params/a/b", a_[1], -0.37169);
   this->get_parameter_or("params/a/c", a_[2], 1.2602);
   this->get_parameter_or("params/a/d", a_[3], -1.5161);
   this->get_parameter_or("params/a/e", a_[4], 0.70696);
+
   this->get_parameter_or("params/b/a", b_[0], 0.);
   this->get_parameter_or("params/b/b", b_[1], -1.7536);
   this->get_parameter_or("params/b/c", b_[2], 5.0931);
@@ -246,6 +250,7 @@ LaneDetector::~LaneDetector(void)
   xav.coef = lane_coef_.coef;
   xav.cur_angle = AngleDegree_;
   xav.cur_angle2 = SteerAngle2_;
+  xav.e_values = e_values_;
 
   XavPublisher_->publish(xav);
   lanedetect_Thread.join();
@@ -283,8 +288,22 @@ void LaneDetector::lanedetectInThread()
       xav.cur_angle = AngleDegree_;
       xav.cur_angle2 = SteerAngle2_;
       xav.center_select = center_select_;
-      xav.target_x = target_x_;
-      xav.target_y = target_y_;
+      xav.e_values = e_values_;
+      xav.k1 = K1_;
+      xav.k2 = K2_;
+      XavPublisher_->publish(xav);
+    }
+    else if(rearImageStatus_ && droi_ready_) {  
+      AngleDegree_ = display_img(rearCamImageCopy_, waitKeyDelay_, viewImage_);
+      droi_ready_ = false;
+     
+      xav.coef = lane_coef_.coef;
+      xav.cur_angle = AngleDegree_;
+      xav.cur_angle2 = SteerAngle2_;
+      xav.center_select = center_select_;
+      xav.e_values = e_values_;
+      xav.k1 = K1_;
+      xav.k2 = K2_;
       XavPublisher_->publish(xav);
     }
 
@@ -322,9 +341,9 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
   float cur_vel_ = msg->cur_vel;
   distance_ = msg->cur_dist;
+  droi_ready_ = true;
 
   get_steer_coef(cur_vel_);
-  droi_ready_ = true;
 
   lc_right_flag = msg->lc_right_flag;
   lc_left_flag = msg->lc_left_flag;
@@ -1609,7 +1628,9 @@ void LaneDetector::controlSteer() {
     SteerAngle_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
   }
 
-  // right lane change with cspline path
+  /*********************/
+  /* right lane change */
+  /*********************/
   if ((!center2_coef_.empty()) && lc_right_flag_) {
     lane_coef_.coef[0].a = r_fit.at<float>(2, 0);
     lane_coef_.coef[0].b = r_fit.at<float>(1, 0);
@@ -1631,19 +1652,20 @@ void LaneDetector::controlSteer() {
     e_values_[1] = e_values_[0] - (lp_ * (l3 / l1));  //trust_e1
     e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
     SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-  
-    if (center_select_ == 2) {
-      l1 =  j - i;
-      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
-  
-      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
-      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
-      e_values_[2] = ((lane_coef_.coef[2].a * pow(k, 2)) + (lane_coef_.coef[2].b * k) + lane_coef_.coef[2].c) - car_position;  //e1
-      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-    }
+    //SteerAngle2_ = ((-1.0f * K3_) * e_values_[1]) + ((-1.0f * K4_) * e_values_[0]);
 
+//    if (center_select_ == 2) { // test
+//      l1 =  j - i;
+//      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
+//  
+//      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
+//      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
+//      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+//    }
   }
-  // left lane change with cspline path
+  /********************/
+  /* left lane change */
+  /********************/
   else if ((!center3_coef_.empty()) && lc_left_flag_) { 
     lane_coef_.coef[0].a = e2_fit.at<float>(2, 0);
     lane_coef_.coef[0].b = e2_fit.at<float>(1, 0);
@@ -1665,18 +1687,17 @@ void LaneDetector::controlSteer() {
     e_values_[1] = e_values_[0] - (lp_ * (l3 / l1));  //trust_e1
     e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
     SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-  
-    if (center_select_ == 3) {
-      l1 =  j - i;
-      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
-  
-      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
-      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
-      e_values_[2] = ((lane_coef_.coef[2].a * pow(k, 2)) + (lane_coef_.coef[2].b * k) + lane_coef_.coef[2].c) - car_position;  //e1
-      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-    }
+    //SteerAngle2_ = ((-1.0f * K3_) * e_values_[1]) + ((-1.0f * K4_) * e_values_[0]);
+
+//    if (center_select_ == 3) {
+//      l1 =  j - i;
+//      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
+//  
+//      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
+//      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
+//      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+//    }
   }
-  
 }
 
 tk::spline LaneDetector::cspline() {
