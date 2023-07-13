@@ -116,6 +116,7 @@ private:
 	bool R_flag = true;
 	bool E_flag = true;
 	bool E2_flag = true;
+	bool lc_center_follow_ = true;
         bool lc_right_flag = false;
         bool lc_right_flag_ = false;
         bool lc_left_flag = false;

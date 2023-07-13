@@ -280,7 +280,7 @@ void LaneDetector::lanedetectInThread()
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
 
-    if(imageStatus_ && droi_ready_) {  
+    if(imageStatus_ && droi_ready_) { /* use front_cam  */ 
       AngleDegree_ = display_img(camImageCopy_, waitKeyDelay_, viewImage_);
       droi_ready_ = false;
      
@@ -291,9 +291,10 @@ void LaneDetector::lanedetectInThread()
       xav.e_values = e_values_;
       xav.k1 = K1_;
       xav.k2 = K2_;
+      xav.lc_center_follow = lc_center_follow_;
       XavPublisher_->publish(xav);
     }
-    else if(rearImageStatus_ && droi_ready_) {  
+    else if(rearImageStatus_ && droi_ready_) { /* use rear_cam  */ 
       AngleDegree_ = display_img(rearCamImageCopy_, waitKeyDelay_, viewImage_);
       droi_ready_ = false;
      
@@ -494,12 +495,12 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
         result.push_back(cluster.maxValueIndex);
     }
 
-    if(viewImage_){
-      namedWindow("Histogram Clusters");
-      moveWindow("Histogram Clusters", 710, 700);
-      cv::imshow("Histogram Clusters", cluster_frame);
-      cv::waitKey(2);
-    }
+//    if(viewImage_){
+//      namedWindow("Histogram Clusters");
+//      moveWindow("Histogram Clusters", 710, 700);
+//      cv::imshow("Histogram Clusters", cluster_frame);
+//      cv::waitKey(2);
+//    }
 
     return result;
 }
@@ -1604,6 +1605,7 @@ void LaneDetector::controlSteer() {
   float i = ((float)height_) * eL_height_;  
   float j = ((float)height_) * trust_height_;
   float k = ((float)height_) * e1_height_;
+  float temp_diff = 10.1f;
 
   lane_coef_.coef.resize(3);
   if (!l_fit.empty() && !r_fit.empty()) {
@@ -1651,17 +1653,22 @@ void LaneDetector::controlSteer() {
     e_values_[0] = (float)cspline_eq_(i) - car_position;  //eL
     e_values_[1] = e_values_[0] - (lp_ * (l3 / l1));  //trust_e1
     e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
-    SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-    //SteerAngle2_ = ((-1.0f * K3_) * e_values_[1]) + ((-1.0f * K4_) * e_values_[0]);
+    SteerAngle2_ = ((-1.0f * K3_) * e_values_[1]) + ((-1.0f * K4_) * e_values_[0]);
 
-//    if (center_select_ == 2) { // test
-//      l1 =  j - i;
-//      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
-//  
-//      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
-//      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
-//      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-//    }
+    /* cspline follow -> center follow  */
+    temp_diff = ((lane_coef_.coef[2].a * pow(height_, 2)) + (lane_coef_.coef[2].b * height_) + lane_coef_.coef[2].c) - (float)cspline_eq_(height_); 
+    temp_diff = abs(temp_diff);
+
+    if (center_select_ == 2 && ((0 <= temp_diff) && (temp_diff <= 10))) {
+      lc_center_follow_ = true; 
+      l1 =  j - i;
+      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
+  
+      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
+      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
+      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+    }
+    /* cspline follow -> center follow  */
   }
   /********************/
   /* left lane change */
@@ -1686,17 +1693,22 @@ void LaneDetector::controlSteer() {
     e_values_[0] = (float)cspline_eq_(i) - car_position;  //eL
     e_values_[1] = e_values_[0] - (lp_ * (l3 / l1));  //trust_e1
     e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
-    SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-    //SteerAngle2_ = ((-1.0f * K3_) * e_values_[1]) + ((-1.0f * K4_) * e_values_[0]);
+    SteerAngle2_ = ((-1.0f * K3_) * e_values_[1]) + ((-1.0f * K4_) * e_values_[0]);
 
-//    if (center_select_ == 3) {
-//      l1 =  j - i;
-//      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
-//  
-//      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
-//      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
-//      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-//    }
+    /* cspline follow -> center follow  */
+    temp_diff = ((lane_coef_.coef[2].a * pow(height_, 2)) + (lane_coef_.coef[2].b * height_) + lane_coef_.coef[2].c) - (float)cspline_eq_(height_); 
+    temp_diff = abs(temp_diff);
+
+    if (center_select_ == 3 && ((0 <= temp_diff) && (temp_diff <= 10))) {
+      lc_center_follow_ = true; 
+      l1 =  j - i;
+      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
+  
+      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
+      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
+      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+    }
+    /* cspline follow -> center follow  */
   }
 }
 
@@ -1781,17 +1793,20 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
     std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
     lc_right_flag_ = true;
+    lc_center_follow_ = false;
   }
   else if(lc_left_flag) { // left lane change mode
     std::copy(lROIcorners_.begin(), lROIcorners_.end(), corners_.begin());
     std::copy(lROIwarpCorners_.begin(), lROIwarpCorners_.end(), warpCorners_.begin());
     lc_left_flag_ = true;
+    lc_center_follow_ = false;
   }
   else { // normal mode
     std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
     std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
     lc_right_flag_ = false; 
     lc_left_flag_ = false; 
+    lc_center_follow_ = true;
   }
 
   Mat trans = getPerspectiveTransform(corners_, warpCorners_);
@@ -1874,14 +1889,14 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       cv::circle(sliding_frame, (warpCorners_[3]), 10, (0,0,255), -1);
       imshow("Window2", sliding_frame);
     }
-    if(!resized_frame.empty()){
-      resize(resized_frame, resized_frame, Size(640, 480));
-      //imshow("Window3", resized_frame);
-    }
-    if(!cluster_frame.empty()){
-      resize(cluster_frame, cluster_frame, Size(640, 480));
-      //imshow("Histogram Clusters", cluster_frame);
-    }
+//    if(!resized_frame.empty()){
+//      resize(resized_frame, resized_frame, Size(640, 480));
+//      //imshow("Window3", resized_frame);
+//    }
+//    if(!cluster_frame.empty()){
+//      resize(cluster_frame, cluster_frame, Size(640, 480));
+//      //imshow("Histogram Clusters", cluster_frame);
+//    }
 
 
     waitKey(_delay);
