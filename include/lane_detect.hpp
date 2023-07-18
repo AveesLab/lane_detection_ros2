@@ -140,13 +140,13 @@ private:
         void lanedetectInThread();
 
 	/********** Camera calibration **********/
-	Mat map1_, map2_, f_map1_, f_map2_;
+	Mat map1_, map2_, f_map1_, f_map2_, r_map1_, r_map2_;
 	int canny_thresh1_, canny_thresh2_;
 
 	/********** Lane_detect ***********/
-	vector<Point2f> corners_, fROIcorners_, rROIcorners_, lROIcorners_;
-	vector<Point2f> warpCorners_, fROIwarpCorners_, rROIwarpCorners_, lROIwarpCorners_;
-        float wide_extra_upside_[3], wide_extra_downside_[3];
+	vector<Point2f> corners_, fROIcorners_, rROIcorners_, lROIcorners_, rearROIcorners_;
+	vector<Point2f> warpCorners_, fROIwarpCorners_, rROIwarpCorners_, lROIwarpCorners_, rearROIwarpCorners_;
+        float wide_extra_upside_[4], wide_extra_downside_[4];
 
 	int last_Llane_base_;
 	int last_Rlane_base_;

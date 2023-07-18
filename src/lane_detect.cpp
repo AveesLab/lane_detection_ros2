@@ -27,8 +27,8 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("subscribers/xavier_to_lane/queue_size", XavSubQueueSize, 1);
   this->get_parameter_or("subscribers/image_to_lane/topic", ImageSubTopicName, std::string("usb_cam/image_raw"));
   this->get_parameter_or("subscribers/image_to_lane/queue_size", ImageSubQueueSize, 1);
-  this->get_parameter_or("subscribers/rearimage_to_lane/topic", rearImageSubTopicName, std::string("rear_cam/image_raw"));
-  this->get_parameter_or("subscribers/rearimage_to_lane/queue_size", rearImageSubQueueSize, 1);
+  this->get_parameter_or("subscribers/rearImage_to_lane/topic", rearImageSubTopicName, std::string("rear_cam/image_raw"));
+  this->get_parameter_or("subscribers/rearImage_to_lane/queue_size", rearImageSubQueueSize, 1);
 
   /****************************/
   /* Ros Topic Publish Option */
@@ -54,7 +54,6 @@ LaneDetector::LaneDetector()
   /* View Option */
   /***************/
   this->get_parameter_or("image_view/enable_opencv", viewImage_, true);
-  this->get_parameter_or("rear_image_view/enable_opencv", rear_view_, false);
   this->get_parameter_or("image_view/enable_adthreshold", ad_threshold_, true);
   this->get_parameter_or("image_view/wait_key_delay", waitKeyDelay_, 3);
 
@@ -62,7 +61,7 @@ LaneDetector::LaneDetector()
   gettimeofday(&start_, NULL);
 
       /******* Camera  calibration *******/
-  double f_matrix[9], f_dist_coef[5];
+  double f_matrix[9], f_dist_coef[5], r_matrix[9], r_dist_coef[5];
   this->get_parameter_or("Calibration/f_matrix/a",f_matrix[0], 3.2918100682757097e+02);
   this->get_parameter_or("Calibration/f_matrix/b",f_matrix[1], 0.);
   this->get_parameter_or("Calibration/f_matrix/c",f_matrix[2], 320.);
@@ -79,11 +78,35 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("Calibration/f_dist_coef/d",f_dist_coef[3], 0.);
   this->get_parameter_or("Calibration/f_dist_coef/e",f_dist_coef[4], -2.1908791800876997e-02);
 
+  this->get_parameter_or("Calibration/r_matrix/a",r_matrix[0], 326.31389227574556);
+  this->get_parameter_or("Calibration/r_matrix/b",r_matrix[1], 0.);
+  this->get_parameter_or("Calibration/r_matrix/c",r_matrix[2], 320.);
+  this->get_parameter_or("Calibration/r_matrix/d",r_matrix[3], 0.);
+  this->get_parameter_or("Calibration/r_matrix/e",r_matrix[4], 326.31389227574556);
+  this->get_parameter_or("Calibration/r_matrix/f",r_matrix[5], 240.);
+  this->get_parameter_or("Calibration/r_matrix/g",r_matrix[6], 0.);
+  this->get_parameter_or("Calibration/r_matrix/h",r_matrix[7], 0.);
+  this->get_parameter_or("Calibration/r_matrix/i",r_matrix[8], 1.);
+
+  this->get_parameter_or("Calibration/r_dist_coef/a",r_dist_coef[0], -0.33295846454356126);
+  this->get_parameter_or("Calibration/r_dist_coef/b",r_dist_coef[1], 0.12386827336557986);
+  this->get_parameter_or("Calibration/r_dist_coef/c",r_dist_coef[2], 0.);
+  this->get_parameter_or("Calibration/r_dist_coef/d",r_dist_coef[3], 0.);
+  this->get_parameter_or("Calibration/r_dist_coef/e",r_dist_coef[4], -0.022565312043601477);
+
+  /*** front cam calibration  ***/
   Mat f_camera_matrix = Mat::eye(3, 3, CV_64FC1);
   Mat f_dist_coeffs = Mat::zeros(1, 5, CV_64FC1);
   f_camera_matrix = (Mat1d(3, 3) << f_matrix[0], f_matrix[1], f_matrix[2], f_matrix[3], f_matrix[4], f_matrix[5], f_matrix[6], f_matrix[7], f_matrix[8]);
   f_dist_coeffs = (Mat1d(1, 5) << f_dist_coef[0], f_dist_coef[1], f_dist_coef[2], f_dist_coef[3], f_dist_coef[4]);
   initUndistortRectifyMap(f_camera_matrix, f_dist_coeffs, Mat(), f_camera_matrix, Size(640, 480), CV_32FC1, f_map1_, f_map2_);
+
+  /*** rear cam calibration  ***/
+  Mat r_camera_matrix = Mat::eye(3, 3, CV_64FC1);
+  Mat r_dist_coeffs = Mat::zeros(1, 5, CV_64FC1);
+  r_camera_matrix = (Mat1d(3, 3) << r_matrix[0], r_matrix[1], r_matrix[2], r_matrix[3], r_matrix[4], r_matrix[5], r_matrix[6], r_matrix[7], r_matrix[8]);
+  r_dist_coeffs = (Mat1d(1, 5) << r_dist_coef[0], r_dist_coef[1], r_dist_coef[2], r_dist_coef[3], r_dist_coef[4]);
+  initUndistortRectifyMap(r_camera_matrix, r_dist_coeffs, Mat(), r_camera_matrix, Size(640, 480), CV_32FC1, r_map1_, r_map2_);
 
   map1_ = f_map1_.clone();
   map2_ = f_map2_.clone();
@@ -105,10 +128,8 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/height", height_, 480);
   center_position_ = width_/2;
 
-  e_values_.resize(3);
-
-  float t_gap[3], b_gap[3], t_height[3], b_height[3], f_extra[3], b_extra[3];
-  int top_gap[3], bot_gap[3], top_height[3], bot_height[3], extra_up[3], extra_down[3];
+  float t_gap[4], b_gap[4], t_height[4], b_height[4], f_extra[4], b_extra[4];
+  int top_gap[4], bot_gap[4], top_height[4], bot_height[4], extra_up[4], extra_down[4];
 
   this->get_parameter_or("ROI/dynamic_roi",option_, true);
   this->get_parameter_or("ROI/threshold",threshold_, 128);
@@ -142,6 +163,15 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/wide_left/extra_up",extra_up[2], 0);
   this->get_parameter_or("ROI/wide_left/extra_down",extra_down[2], 0);
 
+  this->get_parameter_or("ROI/rear_cam/top_gap",t_gap[3], 0.405f);
+  this->get_parameter_or("ROI/rear_cam/bot_gap",b_gap[3], 0.17f);
+  this->get_parameter_or("ROI/rear_cam/top_height",t_height[3], 0.99f);
+  this->get_parameter_or("ROI/rear_cam/bot_height",b_height[3], 0.47f);
+  this->get_parameter_or("ROI/rear_cam/extra_f",f_extra[3], 1.0f);
+  this->get_parameter_or("ROI/rear_cam/extra_b",b_extra[3], 10.0f);
+  this->get_parameter_or("ROI/rear_cam/extra_up",extra_up[3], 140);
+  this->get_parameter_or("ROI/rear_cam/extra_down",extra_down[3], 180);
+
   this->get_parameter_or("threshold/box_size", Threshold_box_size_, 51);
   this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 51);
 
@@ -149,6 +179,8 @@ LaneDetector::LaneDetector()
 
   corners_.resize(4);
   warpCorners_.resize(4);
+
+  e_values_.resize(3);
 
   /*** front cam ROI setting ***/
   fROIcorners_.resize(4);
@@ -219,6 +251,29 @@ LaneDetector::LaneDetector()
   lROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[2], height_);
   /*** Wide left ROI setting ***/
 
+  /*** rear cam ROI setting ***/
+  rearROIcorners_.resize(4);
+  rearROIwarpCorners_.resize(4);
+
+  top_gap[3] = width_ * t_gap[3]; 
+  bot_gap[3] = width_ * b_gap[3];
+  top_height[3] = height_ * t_height[3];
+  bot_height[3] = height_ * b_height[3];
+
+  rearROIcorners_[0] = Point2f(top_gap[3]+f_extra[3], bot_height[3]);
+  rearROIcorners_[1] = Point2f((width_ - top_gap[3])+f_extra[3], bot_height[3]);
+  rearROIcorners_[2] = Point2f(bot_gap[3]+b_extra[3], top_height[3]);
+  rearROIcorners_[3] = Point2f((width_ - bot_gap[3])+b_extra[3], top_height[3]);
+  
+  wide_extra_upside_[3] = extra_up[3];
+  wide_extra_downside_[3] = extra_down[3];
+  
+  rearROIwarpCorners_[0] = Point2f(wide_extra_upside_[3], 0.0);
+  rearROIwarpCorners_[1] = Point2f(width_ - wide_extra_upside_[3], 0.0);
+  rearROIwarpCorners_[2] = Point2f(wide_extra_downside_[3], height_);
+  rearROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[3], height_);
+  /*** rear cam ROI setting ***/
+
   /* Lateral Control coefficient */
   this->get_parameter_or("params/K", K_, 0.15f);
   this->get_parameter_or("params/K3", K3_, 0.15f);
@@ -265,7 +320,7 @@ void LaneDetector::lanedetectInThread()
   int cnt = 0;
   const auto wait_duration = std::chrono::milliseconds(2000);
 
-  while(!imageStatus_) {
+  while(!imageStatus_ && !rearImageStatus_) {
     RCLCPP_INFO(this->get_logger(), "Waiting for image.\n");
     if(!isNodeRunning_) {
       return;
@@ -299,12 +354,8 @@ void LaneDetector::lanedetectInThread()
       droi_ready_ = false;
      
       xav.coef = lane_coef_.coef;
-      xav.cur_angle = AngleDegree_;
-      xav.cur_angle2 = SteerAngle2_;
       xav.center_select = center_select_;
-      xav.e_values = e_values_;
-      xav.k1 = K1_;
-      xav.k2 = K2_;
+      xav.lc_center_follow = lc_center_follow_;
       XavPublisher_->publish(xav);
     }
 
@@ -340,19 +391,25 @@ void LaneDetector::LoadParams(void)
 
 void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
-  float cur_vel_ = msg->cur_vel;
-  distance_ = msg->cur_dist;
-  droi_ready_ = true;
-
-  get_steer_coef(cur_vel_);
-
-  lc_right_flag = msg->lc_right_flag;
-  lc_left_flag = msg->lc_left_flag;
+  if(imageStatus_ == true) {
+    float cur_vel_ = msg->cur_vel;
+    distance_ = msg->cur_dist;
+    droi_ready_ = true;
+  
+    get_steer_coef(cur_vel_);
+  
+    lc_right_flag = msg->lc_right_flag;
+    lc_left_flag = msg->lc_left_flag;
+  }
+  else if(rearImageStatus_ == true) {
+    distance_ = msg->cur_dist; // 임시 -> yolov3-tiny를 통한 거리 적용해야함.
+    droi_ready_ = true;
+  }
 }
 
 void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg)
 {
-  cv::Mat overlap_img;
+  static cv::Mat prev_img;
   cv_bridge::CvImagePtr cam_image;
   try{
     cam_image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
@@ -360,36 +417,32 @@ void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg
     RCLCPP_ERROR(this->get_logger(), "cv_bridge exception : %s", e.what());
   }
 
-  if(cam_image) {
+  if(!cam_image->image.empty()) {
     imageHeader_ = msg->header;
     camImageCopy_ = cam_image->image.clone();
+    prev_img = camImageCopy_;
     imageStatus_ = true;
+  }
+  else if(!prev_img.empty()) {
+    camImageCopy_ = prev_img;
   }
 }
 
 void LaneDetector::rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg)
 {
   Mat frame_;
-  cv_bridge::CvImagePtr cam_image;
+  cv_bridge::CvImagePtr rear_cam_image;
   try{
-    cam_image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    rear_cam_image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
   } catch (cv_bridge::Exception& e) {
     RCLCPP_ERROR(this->get_logger(), "cv_bridge exception : %s", e.what());
   }
 
-  if(cam_image) {
+  if(!rear_cam_image->image.empty()) {
     rearImageHeader_ = msg->header;
-    rearCamImageCopy_ = cam_image->image.clone();
+    rearCamImageCopy_ = rear_cam_image->image.clone();
     frame_ = camImageCopy_;
     rearImageStatus_ = true;
-  }
-
-  if(!frame_.empty() && rear_view_) {
-    namedWindow("rearCam");
-    moveWindow("rearCam", 1280, 520);
-    resize(frame_, frame_, Size(640, 480));
-    imshow("rearCam", frame_);
-    waitKey(2);
   }
 }
 
@@ -722,13 +775,13 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   unsigned int index;
 
   if (Llane_base == -1) {
-    RCLCPP_ERROR(this->get_logger(), "Not Detection Llane_Base");
+//    RCLCPP_ERROR(this->get_logger(), "Not Detection Llane_Base");
     L_flag = false;
     prev_Llane_current = 0;
     prev_L_gap = 0;
   }
   if (Rlane_base == -1) {
-    RCLCPP_ERROR(this->get_logger(), "Not Detection Rlane_Base");
+//    RCLCPP_ERROR(this->get_logger(), "Not Detection Rlane_Base");
     R_flag = false;
     prev_Rlane_current = 0;
     prev_R_gap = 0;
@@ -1578,7 +1631,6 @@ void LaneDetector::clear_release() {
   center2_y_.clear();
   center3_x_.clear();
   center3_y_.clear();
-
 }
 
 void LaneDetector::get_steer_coef(float vel){
@@ -1721,8 +1773,6 @@ tk::spline LaneDetector::cspline() {
   
   std::vector<double> X;
   std::vector<double> Y; 
-  static std::vector<double> prev_X;
-  static std::vector<double> prev_Y; 
   tk::spline cspline_eq;
 
   /*****************/
@@ -1789,23 +1839,32 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   Mat new_frame, gray_frame, binary_frame, overlap_frame, diff_frame, sliding_frame, resized_frame, blackPixels, inpainted;
   
   /* apply ROI setting */
-  if(lc_right_flag) { // right lane change mode
-    std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
-    std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
-    lc_right_flag_ = true;
-    lc_center_follow_ = false;
+  if(imageStatus_ == true) {
+    if(lc_right_flag) { // right lane change mode
+      std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
+      std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
+      lc_right_flag_ = true;
+      lc_center_follow_ = false;
+    }
+    else if(lc_left_flag) { // left lane change mode
+      std::copy(lROIcorners_.begin(), lROIcorners_.end(), corners_.begin());
+      std::copy(lROIwarpCorners_.begin(), lROIwarpCorners_.end(), warpCorners_.begin());
+      lc_left_flag_ = true;
+      lc_center_follow_ = false;
+    }
+    else { // normal mode
+      std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
+      std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
+      lc_right_flag_ = false; 
+      lc_left_flag_ = false; 
+      lc_center_follow_ = true;
+    }
   }
-  else if(lc_left_flag) { // left lane change mode
-    std::copy(lROIcorners_.begin(), lROIcorners_.end(), corners_.begin());
-    std::copy(lROIwarpCorners_.begin(), lROIwarpCorners_.end(), warpCorners_.begin());
-    lc_left_flag_ = true;
-    lc_center_follow_ = false;
-  }
-  else { // normal mode
-    std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
-    std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
-    lc_right_flag_ = false; 
-    lc_left_flag_ = false; 
+  else if(rearImageStatus_ == true) {
+    map1_ = r_map1_.clone();
+    map2_ = r_map2_.clone();
+    std::copy(rearROIcorners_.begin(), rearROIcorners_.end(), corners_.begin());
+    std::copy(rearROIwarpCorners_.begin(), rearROIwarpCorners_.end(), warpCorners_.begin());
     lc_center_follow_ = true;
   }
 
@@ -1872,36 +1931,23 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 
     if(!new_frame.empty()) {
       resize(new_frame, new_frame, Size(640, 480));
-      //resize(gray_frame, new_frame, Size(640, 480));
-      cv::circle(new_frame, (corners_[0]), 10, (0,0,255), -1);
-      cv::circle(new_frame, (corners_[1]), 10, (0,0,255), -1);
-      cv::circle(new_frame, (corners_[2]), 10, (0,0,255), -1);
-      cv::circle(new_frame, (corners_[3]), 10, (0,0,255), -1);
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {
       resize(sliding_frame, sliding_frame, Size(640, 480));
-      //resize(binary_frame, sliding_frame, Size(640, 480));
-      cv::circle(sliding_frame, (Point2f(width_/2, height_)), 20, (0,0,255), -1);
-      cv::circle(sliding_frame, (warpCorners_[0]), 10, (0,0,255), -1);
-      cv::circle(sliding_frame, (warpCorners_[1]), 10, (0,0,255), -1);
-      cv::circle(sliding_frame, (warpCorners_[2]), 10, (0,0,255), -1);
-      cv::circle(sliding_frame, (warpCorners_[3]), 10, (0,0,255), -1);
       imshow("Window2", sliding_frame);
     }
 //    if(!resized_frame.empty()){
 //      resize(resized_frame, resized_frame, Size(640, 480));
-//      //imshow("Window3", resized_frame);
+//      imshow("Window3", resized_frame);
 //    }
 //    if(!cluster_frame.empty()){
 //      resize(cluster_frame, cluster_frame, Size(640, 480));
 //      //imshow("Histogram Clusters", cluster_frame);
 //    }
 
-
     waitKey(_delay);
   }
-  sliding_frame.release(); 
   clear_release();
 
   return SteerAngle_;
