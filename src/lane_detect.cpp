@@ -355,7 +355,6 @@ void LaneDetector::lanedetectInThread()
      
       xav.coef = lane_coef_.coef;
       xav.center_select = center_select_;
-      xav.lc_center_follow = lc_center_follow_;
       XavPublisher_->publish(xav);
     }
 
