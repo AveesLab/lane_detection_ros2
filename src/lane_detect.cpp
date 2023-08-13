@@ -347,6 +347,8 @@ void LaneDetector::lanedetectInThread()
       xav.k1 = K1_;
       xav.k2 = K2_;
       xav.lc_center_follow = lc_center_follow_;
+      xav.est_dist = est_dist_;
+      xav.est_vel = est_vel_;
       XavPublisher_->publish(xav);
     }
     else if(rearImageStatus_ && droi_ready_) { /* use rear_cam  */ 
@@ -355,6 +357,8 @@ void LaneDetector::lanedetectInThread()
      
       xav.coef = lane_coef_.coef;
       xav.center_select = center_select_;
+      xav.est_dist = est_dist_;
+      xav.est_vel = est_vel_;
       XavPublisher_->publish(xav);
     }
 
@@ -391,7 +395,7 @@ void LaneDetector::LoadParams(void)
 void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
   if(imageStatus_ == true) {
-    float cur_vel_ = msg->cur_vel;
+    cur_vel_ = msg->cur_vel;
     distance_ = msg->cur_dist;
     droi_ready_ = true;
   
@@ -399,6 +403,13 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
   
     lc_right_flag = msg->lc_right_flag;
     lc_left_flag = msg->lc_left_flag;
+
+    name_ = msg->name;
+    x_ = msg->x;
+    y_ = msg->y;
+    w_ = msg->w;
+    h_ = msg->h;
+
   }
   else if(rearImageStatus_ == true) {
     distance_ = msg->cur_dist; // 임시 -> yolov3-tiny를 통한 거리 적용해야함.
@@ -1208,7 +1219,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 
 float LaneDetector::lowPassFilter(double sampling_time, float est_value, float prev_res){
   float res = 0;
-  float tau = 0.10f;
+  float tau = 1.00f; //0.10f
   double st = 0.0;
 
   if (sampling_time > 1.0) st = 1.0;
@@ -1216,6 +1227,15 @@ float LaneDetector::lowPassFilter(double sampling_time, float est_value, float p
   res = ((tau * prev_res) + (st * est_value)) / (tau + st);
 
   return res;
+}
+
+Point LaneDetector::warpPoint(Point center, Mat trans){
+  Point warp_center, avg_center;
+
+  warp_center.x = (trans.at<double>(0,0)*center.x + trans.at<double>(0,1)*center.y + trans.at<double>(0,2)) / (trans.at<double>(2,0)*center.x + trans.at<double>(2,1)*center.y + trans.at<double>(2,2));
+  warp_center.y = (trans.at<double>(1,0)*center.x + trans.at<double>(1,1)*center.y + trans.at<double>(1,2)) / (trans.at<double>(2,0)*center.x + trans.at<double>(2,1)*center.y + trans.at<double>(2,2));
+
+  return warp_center;
 }
 
 Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
@@ -1834,8 +1854,67 @@ tk::spline LaneDetector::cspline() {
   return cspline_eq;
 }
 
+//Mat LaneDetector::drawBox(Mat frame)
+//{
+//  std::string name = name_;
+//  Size text_size = getTextSize(name, FONT_HERSHEY_COMPLEX_SMALL, 1.2, 2, 0);
+//  int max_width = (text_size.width > w_ + 2) ? text_size.width : (w_ + 2);
+//  Scalar color(55, 200, 55); // trailer
+//  //Scalar color(255, 0, 255); // tractor
+//  max_width = max(max_width, (int)w_ + 2);
+//  rectangle(frame, Rect(x_, y_, w_, h_), color, 2);
+//  rectangle(frame, Point2f(max((int)x_ - 1, 0), max((int)y_ - 35, 0)), Point2f(min((int)x_ + max_width, frame.cols - 1), min((int)y_, frame.rows - 1)), color, -1, 8, 0);
+//  putText(frame, name, Point2f(x_, y_-16), FONT_HERSHEY_COMPLEX_SMALL, 1.2, Scalar(0,0,0), 2);
+//  return frame;
+//}
+
+
+Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool _view){
+  Mat res_frame;
+  Point warp_center;
+  static Point prev_warp_center;
+  int dist_pixel = 0;
+  float est_dist = 0.f, original_est_vel = 0.f;
+  static float prev_dist = 0.f, prev_est_vel = 0.f;
+
+  frame.copyTo(res_frame);
+  center_ = Point(x_ + w_ / 2, y_ + h_);
+  warp_center = warpPoint(center_, trans);
+  warp_center.x = lowPassFilter(cycle_time, warp_center.x, prev_warp_center.x);
+  warp_center.y = lowPassFilter(cycle_time, warp_center.y, prev_warp_center.y);
+  prev_warp_center = warp_center;
+  warp_center_ = warp_center;
+  dist_pixel = warp_center.y;
+
+  if (name_ == "tail"){
+    est_dist = 1.24f - (dist_pixel/490.0f);
+    //est_dist = 1.2f - (dist_pixel/500.0f); //front-facing camera
+    if (est_dist > 0.26f && est_dist < 1.24f) est_dist_ = est_dist;
+  }
+  else{
+    est_dist = 1.35f - (dist_pixel/480.0f); //rear camera
+    if (est_dist > 0.26f && est_dist < 1.35f) est_dist_ = est_dist;
+  }
+  original_est_vel = ((est_dist_ - prev_dist) / cycle_time) + cur_vel_;
+  est_vel_ = lowPassFilter(cycle_time, original_est_vel, prev_est_vel);
+
+//  RCLCPP_INFO(this->get_logger(), "est_dist, prev_dist, cycle_time: %.2f, %.2f, %.2f\n", est_dist_, prev_dist, cycle_time);
+//  RCLCPP_INFO(this->get_logger(), "cur_vel, est_vel: %.2f, %.2f\n", cur_vel_, est_vel_);
+//  RCLCPP_INFO(this->get_logger(), "ch1, ch2, ch3 : %.3f, %.3f, %.3f\n", (est_dist_ - prev_dist), ((est_dist_ - prev_dist) / cycle_time), (((est_dist_ - prev_dist) / cycle_time) + cur_vel_));
+//  RCLCPP_INFO(this->get_logger(), "\n");
+
+  prev_est_vel = est_vel_;
+  prev_dist = est_dist_; 
+
+
+  return res_frame;
+}
+
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {		
   Mat new_frame, gray_frame, binary_frame, overlap_frame, diff_frame, sliding_frame, resized_frame, blackPixels, inpainted;
+  static struct timeval startTime, endTime;
+  static bool flag = false;
+  double diffTime = 0.0;
   
   /* apply ROI setting */
   if(imageStatus_ == true) {
@@ -1907,13 +1986,30 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     gpu_binary_frame.download(binary_frame);
   }
 
-  if(prev_frame.empty()) {
-    prev_frame = binary_frame;
-  }
-  cv::addWeighted(binary_frame, 1, prev_frame, 1, 0.0, overlap_frame);
-  prev_frame = binary_frame;
+//  if(prev_frame.empty()) {
+//    prev_frame = binary_frame;
+//  }
+//  cv::addWeighted(binary_frame, 1, prev_frame, 1, 0.0, overlap_frame);
+//  prev_frame = binary_frame;
+//
+//  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
+  
+  sliding_frame = detect_lines_sliding_window(binary_frame, _view);
 
-  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
+  /* estimate Distance */
+  if ((x_!=0 && y_!=0 && w_!=0 && h_!=0)){
+    gettimeofday(&endTime, NULL);
+    if (!flag){
+      diffTime = (endTime.tv_sec - start_.tv_sec) + (endTime.tv_usec - start_.tv_usec)/1000000.0;
+      flag = true;
+    }
+    else{
+      diffTime = (endTime.tv_sec - startTime.tv_sec) + (endTime.tv_usec - startTime.tv_usec)/1000000.0;
+      startTime = endTime;
+    }
+    sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
+  }
+
   controlSteer();
 
   if (_view) {
@@ -1934,6 +2030,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     }
     if(!sliding_frame.empty()) {
       resize(sliding_frame, sliding_frame, Size(640, 480));
+      cv::circle(sliding_frame, warp_center_, 10, (0,0,255), -1);
       imshow("Window2", sliding_frame);
     }
 //    if(!resized_frame.empty()){

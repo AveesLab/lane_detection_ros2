@@ -57,8 +57,9 @@ public:
 	void get_steer_coef(float vel);
 	float K1_, K2_, K3_, K4_;
 	int distance_ = 0;
+	float cur_vel_ = 0.0f;
 	float est_dist_ = 0.0f;
-	float est_pose_ = 0.0f;
+	float est_vel_ = 0.0f;
 	Mat frame_;
 	float rotation_angle_ = 0.0f;
 	float lateral_offset_ = 0.0f;
@@ -82,9 +83,8 @@ private:
 	Point warpPoint(Point center, Mat trans);
 	float lowPassFilter(double sampling_time, float est_value, float prev_res);
 	Mat estimateDistance(Mat frame, Mat trans, double cycle_time, bool _view);
-	Mat estimatePose(Mat frame, double cycle_time, bool _view);
 	Mat draw_lane(Mat _sliding_frame, Mat _frame);
-	Mat drawBox(Mat frame);
+	//Mat drawBox(Mat frame);
 	void controlSteer();
 	void clear_release();
 	tk::spline cspline();
