@@ -351,9 +351,8 @@ void LaneDetector::lanedetectInThread()
       xav.est_vel = est_vel_;
       XavPublisher_->publish(xav);
     }
-    else if(rearImageStatus_ && droi_ready_) { /* use rear_cam  */ 
+    else if(rearImageStatus_) { /* use rear_cam  */ 
       AngleDegree_ = display_img(rearCamImageCopy_, waitKeyDelay_, viewImage_);
-      droi_ready_ = false;
      
       xav.coef = lane_coef_.coef;
       xav.center_select = center_select_;
@@ -409,11 +408,6 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
     y_ = msg->y;
     w_ = msg->w;
     h_ = msg->h;
-
-  }
-  else if(rearImageStatus_ == true) {
-    distance_ = msg->cur_dist; // 임시 -> yolov3-tiny를 통한 거리 적용해야함.
-    droi_ready_ = true;
   }
 }
 
@@ -1994,7 +1988,6 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //
 //  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
   
-  sliding_frame = detect_lines_sliding_window(binary_frame, _view);
 
   /* estimate Distance */
   if ((x_!=0 && y_!=0 && w_!=0 && h_!=0)){
@@ -2008,8 +2001,13 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       startTime = endTime;
     }
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
+
+    if(rearImageStatus_ == true && est_dist_ != 0) {
+      distance_ = est_dist_; // use yolo
+    }
   }
 
+  sliding_frame = detect_lines_sliding_window(binary_frame, _view);
   controlSteer();
 
   if (_view) {
