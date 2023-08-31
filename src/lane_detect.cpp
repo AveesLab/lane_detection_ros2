@@ -393,7 +393,7 @@ void LaneDetector::LoadParams(void)
 
 void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
-  if(imageStatus_ == true) {
+  if(imageStatus_) {
     cur_vel_ = msg->cur_vel;
     distance_ = msg->cur_dist;
     droi_ready_ = true;
@@ -403,6 +403,15 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
     lc_right_flag = msg->lc_right_flag;
     lc_left_flag = msg->lc_left_flag;
 
+    name_ = msg->name;
+    x_ = msg->x;
+    y_ = msg->y;
+    w_ = msg->w;
+    h_ = msg->h;
+  }
+
+  if(rearImageStatus_) {
+    cur_vel_ = msg->cur_vel;
     name_ = msg->name;
     x_ = msg->x;
     y_ = msg->y;
@@ -1889,13 +1898,9 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
     est_dist = 1.35f - (dist_pixel/480.0f); //rear camera
     if (est_dist > 0.26f && est_dist < 1.35f) est_dist_ = est_dist;
   }
+	est_dist_ = est_dist_ + 0.23f; // 0.23m = 카메라가 보이기 시작하는 지점까지 거리
   original_est_vel = ((est_dist_ - prev_dist) / cycle_time) + cur_vel_;
   est_vel_ = lowPassFilter(cycle_time, original_est_vel, prev_est_vel);
-
-//  RCLCPP_INFO(this->get_logger(), "est_dist, prev_dist, cycle_time: %.2f, %.2f, %.2f\n", est_dist_, prev_dist, cycle_time);
-//  RCLCPP_INFO(this->get_logger(), "cur_vel, est_vel: %.2f, %.2f\n", cur_vel_, est_vel_);
-//  RCLCPP_INFO(this->get_logger(), "ch1, ch2, ch3 : %.3f, %.3f, %.3f\n", (est_dist_ - prev_dist), ((est_dist_ - prev_dist) / cycle_time), (((est_dist_ - prev_dist) / cycle_time) + cur_vel_));
-//  RCLCPP_INFO(this->get_logger(), "\n");
 
   prev_est_vel = est_vel_;
   prev_dist = est_dist_; 
@@ -1911,7 +1916,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   double diffTime = 0.0;
   
   /* apply ROI setting */
-  if(imageStatus_ == true) {
+  if(imageStatus_) {
     if(lc_right_flag) { // right lane change mode
       std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
       std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
@@ -1990,7 +1995,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   
 
   /* estimate Distance */
-  if ((x_!=0 && y_!=0 && w_!=0 && h_!=0)){
+  if ((x_!=0 && y_!=0 && w_!=0 && h_!=0 && name_ != "")){
     gettimeofday(&endTime, NULL);
     if (!flag){
       diffTime = (endTime.tv_sec - start_.tv_sec) + (endTime.tv_usec - start_.tv_usec)/1000000.0;
@@ -2017,8 +2022,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     moveWindow("Window1", 0, 0);
     namedWindow("Window2");
     moveWindow("Window2", 710, 0);
-//    namedWindow("Window3");
-//    moveWindow("Window3", 1340, 0);
+    namedWindow("Window3");
+    moveWindow("Window3", 1340, 0);
 //    namedWindow("Histogram Clusters");
 //    moveWindow("Histogram Clusters", 710, 700);
 
@@ -2031,10 +2036,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       cv::circle(sliding_frame, warp_center_, 10, (0,0,255), -1);
       imshow("Window2", sliding_frame);
     }
-//    if(!resized_frame.empty()){
-//      resize(resized_frame, resized_frame, Size(640, 480));
-//      imshow("Window3", resized_frame);
-//    }
+    if(!resized_frame.empty()){
+      resize(resized_frame, resized_frame, Size(640, 480));
+      imshow("Window3", resized_frame);
+    }
 //    if(!cluster_frame.empty()){
 //      resize(cluster_frame, cluster_frame, Size(640, 480));
 //      //imshow("Histogram Clusters", cluster_frame);
