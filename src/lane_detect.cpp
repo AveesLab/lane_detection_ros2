@@ -1948,7 +1948,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   Mat trans = getPerspectiveTransform(corners_, warpCorners_);
   /* End apply ROI setting */
 
-  if(!_frame.empty()) resize(_frame, new_frame, Size(width_, height_));
+  if(!_frame.empty()) resize(_frame, new_frame, Size(width_, height_), 0, 0, cv::INTER_LINEAR);
 
   cuda::GpuMat gpu_map1, gpu_map2;
   gpu_map1.upload(map1_);
@@ -1976,14 +1976,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       }
   }
 
-  /* adaptive Threshold */
-  if(ad_threshold_) {
-    adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
-  } 
-  else { /* manual Threshold */
-    cuda::threshold(gpu_gray_frame, gpu_binary_frame, threshold_, 255, THRESH_BINARY);
-    gpu_binary_frame.download(binary_frame);
-  }
+	/* adaptive Threshold */
+	adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
 
 //  if(prev_frame.empty()) {
 //    prev_frame = binary_frame;
@@ -1992,10 +1986,9 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //  prev_frame = binary_frame;
 //
 //  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
-  
 
   /* estimate Distance */
-  if ((x_!=0 && y_!=0 && w_!=0 && h_!=0 && name_ != "")){
+  if ((x_!=0 && y_!=0 && w_!=0 && h_!=0)){
     gettimeofday(&endTime, NULL);
     if (!flag){
       diffTime = (endTime.tv_sec - start_.tv_sec) + (endTime.tv_usec - start_.tv_usec)/1000000.0;
@@ -2028,16 +2021,13 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //    moveWindow("Histogram Clusters", 710, 700);
 
     if(!new_frame.empty()) {
-      resize(new_frame, new_frame, Size(640, 480));
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {
-      resize(sliding_frame, sliding_frame, Size(640, 480));
       cv::circle(sliding_frame, warp_center_, 10, (0,0,255), -1);
       imshow("Window2", sliding_frame);
     }
     if(!resized_frame.empty()){
-      resize(resized_frame, resized_frame, Size(640, 480));
       imshow("Window3", resized_frame);
     }
 //    if(!cluster_frame.empty()){
