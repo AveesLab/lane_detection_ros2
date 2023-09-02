@@ -855,7 +855,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     good_extra_inds.clear();
     good_extra2_inds.clear();
 
-    for (unsigned int index = (nonZero.total() - 1); index > 1; index--) {
+    for (int index = static_cast<int>(nonZero.total() - 1); index >= 0; index--) {
       nZ_y = nonZero.at<Point>(index).y;
       nZ_x = nonZero.at<Point>(index).x;
       if(L_flag){
