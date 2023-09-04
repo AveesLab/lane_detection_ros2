@@ -68,7 +68,9 @@ public:
 
 	/********** bbox *********/
 	std::string name_;
+	std::string r_name_;
 	unsigned int x_ = 0, y_ = 0, w_ = 0, h_ = 0;
+	unsigned int rx_ = 0, ry_ = 0, rw_ = 0, rh_ = 0;
 	Point center_, warp_center_;
 	float log_e1_ = 0.0f;
 	float log_el_ = 0.0f;

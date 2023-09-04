@@ -412,11 +412,11 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 
   if(rearImageStatus_) {
     cur_vel_ = msg->cur_vel;
-    name_ = msg->name;
-    x_ = msg->x;
-    y_ = msg->y;
-    w_ = msg->w;
-    h_ = msg->h;
+    r_name_ = msg->r_name;
+    rx_ = msg->rx;
+    ry_ = msg->ry;
+    rw_ = msg->rw;
+    rh_ = msg->rh;
   }
 }
 
@@ -1881,7 +1881,8 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   static float prev_dist = 0.f, prev_est_vel = 0.f;
 
   frame.copyTo(res_frame);
-  center_ = Point(x_ + w_ / 2, y_ + h_);
+	if(imageStatus_) center_ = Point(x_ + w_ / 2, y_ + h_); // front-cam yolo
+	else center_ = Point(rx_ + rw_ / 2, ry_ + rh_); // rear-cam yolo 
   warp_center = warpPoint(center_, trans);
   warp_center.x = lowPassFilter(cycle_time, warp_center.x, prev_warp_center.x);
   warp_center.y = lowPassFilter(cycle_time, warp_center.y, prev_warp_center.y);
@@ -1889,7 +1890,7 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   warp_center_ = warp_center;
   dist_pixel = warp_center.y;
 
-  if (name_ == "tail"){
+  if (imageStatus_){
     est_dist = 1.24f - (dist_pixel/490.0f);
     //est_dist = 1.2f - (dist_pixel/500.0f); //front-facing camera
     if (est_dist > 0.26f && est_dist < 1.24f) est_dist_ = est_dist;
@@ -1904,7 +1905,6 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
 
   prev_est_vel = est_vel_;
   prev_dist = est_dist_; 
-
 
   return res_frame;
 }
@@ -1987,8 +1987,9 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //
 //  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
 
+
   /* estimate Distance */
-  if ((x_!=0 && y_!=0 && w_!=0 && h_!=0)){
+  if ((x_!=0 && y_!=0 && w_!=0 && h_!=0) || (rx_!=0 && ry_!=0 && rw_!=0 && rh_!=0)){
     gettimeofday(&endTime, NULL);
     if (!flag){
       diffTime = (endTime.tv_sec - start_.tv_sec) + (endTime.tv_usec - start_.tv_usec)/1000000.0;
