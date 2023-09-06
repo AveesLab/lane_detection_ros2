@@ -1186,17 +1186,17 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   
   int center_diff_ = 999, center2_diff_ = 999, center3_diff_ = 999;
   //if (center_x_.size() != 0){
-  if (left_x_.size() != 0 && right_x_.size() != 0){
+  if (left_x_.size() != 0 && right_x_.size() != 0 && !center_x_.empty()){
     //center_coef_ = polyfit(center_y_, center_x_);
     center_coef_ = (left_coef_ + right_coef_)/2;
     center_diff_ = abs(mid_point - center_x_.front());
   }
-  if (extra_x_.size() != 0 && right_x_.size() != 0){
+  if (extra_x_.size() != 0 && right_x_.size() != 0 && !center2_x_.empty()){
 //    center2_coef_ = polyfit(center2_y_, center2_x_);
     center2_coef_ = (right_coef_ + extra_coef_)/2;
     center2_diff_ = abs(mid_point - center2_x_.front());
   }
-  if (left_x_.size() != 0 && extra2_x_.size() != 0){
+  if (left_x_.size() != 0 && extra2_x_.size() != 0 && !center3_x_.empty()){
 //    center3_coef_ = polyfit(center3_y_, center3_x_);
     center3_coef_ = (extra2_coef_ + left_coef_)/2;
     center3_diff_ = abs(mid_point - center3_x_.front());
