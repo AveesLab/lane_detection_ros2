@@ -106,8 +106,8 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/front_cam/extra_up",extra_up[0], 0);
   this->get_parameter_or("ROI/front_cam/extra_down",extra_down[0], 0);
 
-  this->get_parameter_or("threshold/box_size", Threshold_box_size_, 51);
-  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 51);
+  this->get_parameter_or("threshold/box_size", Threshold_box_size_, 64);
+  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 40);
 
   distance_ = 0;
 
