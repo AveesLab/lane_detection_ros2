@@ -332,7 +332,7 @@ void LaneDetector::lanedetectInThread()
 
   while(!controlDone_ && rclcpp::ok()) 
   {
-    struct timeval start_time, end_time;
+    struct timeval start_time, end_time, cur_time;
     gettimeofday(&start_time, NULL);
 
     if(imageStatus_ && droi_ready_) { /* use front_cam  */ 
@@ -349,6 +349,11 @@ void LaneDetector::lanedetectInThread()
       xav.lc_center_follow = lc_center_follow_;
       xav.est_dist = est_dist_;
       xav.est_vel = est_vel_;
+      
+//      gettimeofday(&cur_time, NULL);
+//      xav.stamp_sec = cur_time.tv_sec;
+//      xav.stamp_usec = cur_time.tv_usec;
+
       XavPublisher_->publish(xav);
     }
     else if(rearImageStatus_) { /* use rear_cam  */ 
@@ -423,6 +428,11 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg)
 {
   static cv::Mat prev_img;
+//  static double diff_time;
+//  static double CycleTime_;
+//  static float cnt;
+//  struct timeval end_time;
+
   cv_bridge::CvImagePtr cam_image;
   try{
     cam_image = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
@@ -431,7 +441,22 @@ void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg
   }
 
   if(!cam_image->image.empty()) {
-    imageHeader_ = msg->header;
+//    /* delay time */
+//    gettimeofday(&end_time, NULL);
+//    imageHeader_ = msg->header;
+//    diff_time += ((end_time.tv_sec - imageHeader_.stamp.sec) * 1000.0) + ((end_time.tv_usec - imageHeader_.stamp.nanosec/1000.0) / 1000.0);
+//     
+//    cnt++;
+//
+//    CycleTime_ = diff_time / (double)cnt;
+//    RCLCPP_INFO(this->get_logger(), "Cycle Time        : %3.3f ms\n", CycleTime_);
+//
+//    if (cnt > 3000){
+//      diff_time = 0.0;
+//      cnt = 0;
+//    }
+//    /* delay time */
+
     camImageCopy_ = cam_image->image.clone();
     prev_img = camImageCopy_;
     imageStatus_ = true;
