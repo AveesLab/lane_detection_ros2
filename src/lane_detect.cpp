@@ -106,8 +106,8 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/front_cam/extra_up",extra_up[0], 0);
   this->get_parameter_or("ROI/front_cam/extra_down",extra_down[0], 0);
 
-  this->get_parameter_or("threshold/box_size", Threshold_box_size_, 64);
-  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 40);
+  this->get_parameter_or("threshold/box_size", Threshold_box_size_, 63);
+  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 41);
 
   distance_ = 0;
 
@@ -887,13 +887,13 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   cuda::cvtColor(gpu_blur_frame, gpu_gray_frame, COLOR_BGR2GRAY);
   gpu_gray_frame.download(gray_frame);
 
-//  for(int y = height_/2; y < gray_frame.rows; y++) {
-//      for(int x = 0; x < gray_frame.cols; x++) {
-//          if(gray_frame.at<uchar>(y, x) == 0) {
-//              gray_frame.at<uchar>(y, x) = 100;
-//          }
-//      }
-//  }
+  for(int y = height_/2; y < gray_frame.rows; y++) {
+      for(int x = 0; x < gray_frame.cols; x++) {
+          if(gray_frame.at<uchar>(y, x) == 0) {
+              gray_frame.at<uchar>(y, x) = 100;
+          }
+      }
+  }
 
 	/* adaptive Threshold */
 	adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
