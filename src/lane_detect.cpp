@@ -276,7 +276,7 @@ int LaneDetector::arrMaxIdx(int hist[], int start, int end, int Max) {
     }
   }
   if ((max_index == -1) || (hist[max_index] < (size_t)min_pix)) {
-//    cout << "ERROR : hist range" << endl;
+    cout << "ERROR : hist range" << endl;
     return -1;
   }
   return max_index;
@@ -379,7 +379,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 
 //  distance: 위 아래 군집 형성
 //  for (int j = distance_; j < height; j++) { 
-  for (int j = height/2; j < height; j++) { 
+  for (int j = 0; j < height; j++) { 
     for (int i = 0; i < width; i++) {
       if (frame.at <uchar>(j, i) == 255) {
         hist[i] += 1;
@@ -406,8 +406,8 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     window_height = height / n_windows;
   }
   
-  int Llane_base = arrMaxIdx(hist, 140, mid_point, width);
-  int Rlane_base = arrMaxIdx(hist, mid_point, width-140, width);
+  int Llane_base = arrMaxIdx(hist, 100, mid_point, width);
+  int Rlane_base = arrMaxIdx(hist, mid_point, width-100, width);
 
   int Llane_current = Llane_base;
   int Rlane_current = Rlane_base;
