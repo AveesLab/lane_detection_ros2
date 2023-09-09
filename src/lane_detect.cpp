@@ -1955,8 +1955,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       lc_center_follow_ = false;
     }
     else { // normal mode
-      std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
-      std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
+//      std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
+//      std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
+      std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
+      std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
       lc_right_flag_ = false; 
       lc_left_flag_ = false; 
       lc_center_follow_ = true;
@@ -2027,7 +2029,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
     if(rearImageStatus_ == true && est_dist_ != 0) {
-      distance_ = est_dist_; // use yolo
+      distance_ = (int)((1.35f - est_dist_)*520.0f)+140;
     }
   }
 
