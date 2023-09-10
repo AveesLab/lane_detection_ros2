@@ -54,8 +54,8 @@ LaneDetector::LaneDetector()
   /* View Option */
   /***************/
   this->get_parameter_or("image_view/enable_opencv", viewImage_, true);
-  this->get_parameter_or("image_view/enable_adthreshold", ad_threshold_, true);
   this->get_parameter_or("image_view/wait_key_delay", waitKeyDelay_, 3);
+  this->get_parameter_or("image_view/TEST", TEST, false);
 
   /******* recording log *******/    
   gettimeofday(&start_, NULL);
@@ -128,8 +128,9 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/height", height_, 480);
   center_position_ = width_/2;
 
-  float t_gap[4], b_gap[4], t_height[4], b_height[4], f_extra[4], b_extra[4];
-  int top_gap[4], bot_gap[4], top_height[4], bot_height[4], extra_up[4], extra_down[4];
+  float t_gap[5], b_gap[5], t_height[5], b_height[5], f_extra[5], b_extra[5];
+  int top_gap[5], bot_gap[5], top_height[5], bot_height[5], extra_up[5], extra_down[5];
+  float wide_extra_upside_[5], wide_extra_downside_[5];
 
   this->get_parameter_or("ROI/dynamic_roi",option_, true);
   this->get_parameter_or("ROI/threshold",threshold_, 128);
@@ -172,8 +173,17 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/rear_cam/extra_up",extra_up[3], 140);
   this->get_parameter_or("ROI/rear_cam/extra_down",extra_down[3], 180);
 
+  this->get_parameter_or("ROI/test/top_gap",t_gap[4], 0.405f);
+  this->get_parameter_or("ROI/test/bot_gap",b_gap[4], 0.17f);
+  this->get_parameter_or("ROI/test/top_height",t_height[4], 0.99f);
+  this->get_parameter_or("ROI/test/bot_height",b_height[4], 0.47f);
+  this->get_parameter_or("ROI/test/extra_f",f_extra[4], 1.0f);
+  this->get_parameter_or("ROI/test/extra_b",b_extra[4], 10.0f);
+  this->get_parameter_or("ROI/test/extra_up",extra_up[4], 140);
+  this->get_parameter_or("ROI/test/extra_down",extra_down[4], 180);
+
   this->get_parameter_or("threshold/box_size", Threshold_box_size_, 51);
-  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 51);
+  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 50);
 
   distance_ = 0;
 
@@ -272,6 +282,29 @@ LaneDetector::LaneDetector()
   rearROIwarpCorners_[1] = Point2f(width_ - wide_extra_upside_[3], 0.0);
   rearROIwarpCorners_[2] = Point2f(wide_extra_downside_[3], height_);
   rearROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[3], height_);
+  /*** rear cam ROI setting ***/
+
+  /*** rear cam ROI setting ***/
+  testROIcorners_.resize(4);
+  testROIwarpCorners_.resize(4);
+
+  top_gap[4] = width_ * t_gap[4]; 
+  bot_gap[4] = width_ * b_gap[4];
+  top_height[4] = height_ * t_height[4];
+  bot_height[4] = height_ * b_height[4];
+
+  testROIcorners_[0] = Point2f(top_gap[4]+f_extra[4], bot_height[4]);
+  testROIcorners_[1] = Point2f((width_ - top_gap[4])+f_extra[4], bot_height[4]);
+  testROIcorners_[2] = Point2f(bot_gap[4]+b_extra[4], top_height[4]);
+  testROIcorners_[3] = Point2f((width_ - bot_gap[4])+b_extra[4], top_height[4]);
+  
+  wide_extra_upside_[4] = extra_up[4];
+  wide_extra_downside_[4] = extra_down[4];
+  
+  testROIwarpCorners_[0] = Point2f(wide_extra_upside_[4], 0.0);
+  testROIwarpCorners_[1] = Point2f(width_ - wide_extra_upside_[4], 0.0);
+  testROIwarpCorners_[2] = Point2f(wide_extra_downside_[4], height_);
+  testROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[4], height_);
   /*** rear cam ROI setting ***/
 
   /* Lateral Control coefficient */
@@ -514,7 +547,7 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
     
     // Prepare data for k-means
     std::vector<cv::Point2f> points;
-    for (int i = 0; i < 640; ++i) {
+    for (int i = 0; i < width_; ++i) {
         for (int j = 0; j < hist[i]; ++j) {
             points.push_back(cv::Point2f(i, j));
         }
@@ -549,11 +582,11 @@ std::vector<int> LaneDetector::clusterHistogram(int* hist, int cluster_num) {
         int pixel_count = points[i].y;
         int index = points[i].x;
         if (pixel_count > clusters_info[label].maxValue) {
-            clusters_info[label].maxValue = pixel_count;
-            clusters_info[label].maxValueIndex = index;
-	    if(pixel_count <= 30) { // min_pixel in cluster
-              clusters_info[label].maxValueIndex = -1;
-	    }
+          clusters_info[label].maxValue = pixel_count;
+          clusters_info[label].maxValueIndex = index;
+          if(pixel_count <= 30) { // min_pixel in cluster
+            clusters_info[label].maxValueIndex = -1;
+          }
         }
     }    
     
@@ -688,9 +721,11 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   vector<int> good_extra2_inds;
 
   int* hist = new int[width];
+  int* hist2 = new int[width];
 
   for (int i = 0; i < width; i++) {
     hist[i] = 0;
+    hist2[i] = 0;
   }
 
 //  distance: 위 아래 군집 형성
@@ -699,6 +734,14 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     for (int i = 0; i < width; i++) {
       if (frame.at <uchar>(j, i) == 255) {
         hist[i] += 1;
+      }
+    }
+  } 
+  // LC Cluster용도, 사이드 짤짤이 픽셀들 군집에 안잡히게
+  for (int j = 0; j < height/2; j++) { 
+    for (int i = 0; i < width; i++) {
+      if (frame.at <uchar>(j, i) == 255) {
+        hist2[i] += 1;
       }
     }
   } 
@@ -744,7 +787,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 //  }
   if (E_flag == true || E2_flag == true) {
     cluster_num = 3;
-    maxIndices = clusterHistogram(hist, cluster_num);    
+    maxIndices = clusterHistogram(hist2, cluster_num);    
     
     // check for difference less than or equal to 60
     for (size_t i = 0; i < maxIndices.size(); ++i) {
@@ -752,14 +795,16 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           cluster_num = 2;
         }	  
         for (size_t j = i+1; j < maxIndices.size(); ++j) {
+          if (maxIndices[i] != -1 && maxIndices[j] != -1) {
             if (std::abs(maxIndices[i] - maxIndices[j]) <= 60) {
                 cluster_num = 2;
                 break;
             }
+          }
         }
     }
     if (cluster_num == 2) {
-        maxIndices = clusterHistogram(hist, cluster_num);    
+        maxIndices = clusterHistogram(hist2, cluster_num);    
     }
   
     if (cluster_num == 3) {
@@ -1935,7 +1980,7 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
 }
 
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {		
-  Mat new_frame, gray_frame, binary_frame, overlap_frame, diff_frame, sliding_frame, resized_frame, blackPixels, inpainted;
+  Mat new_frame, gray_frame, binary_frame, overlap_frame, sliding_frame, resized_frame, warped_frame;
   static struct timeval startTime, endTime;
   static bool flag = false;
   double diffTime = 0.0;
@@ -1971,6 +2016,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     std::copy(rearROIwarpCorners_.begin(), rearROIwarpCorners_.end(), warpCorners_.begin());
     lc_center_follow_ = true;
   }
+  if(TEST) {
+    std::copy(testROIcorners_.begin(), testROIcorners_.end(), corners_.begin());
+    std::copy(testROIwarpCorners_.begin(), testROIwarpCorners_.end(), warpCorners_.begin());
+  } 
 
   Mat trans = getPerspectiveTransform(corners_, warpCorners_);
   /* End apply ROI setting */
@@ -1988,6 +2037,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   gpu_remap_frame.download(new_frame);  /* apply camera matrix to new_frame */
 
   cuda::warpPerspective(gpu_remap_frame, gpu_warped_frame, trans, Size(width_, height_)); /* ROI apply frame */
+  gpu_warped_frame.download(warped_frame);
 
   static cv::Ptr< cv::cuda::Filter > filters;
   filters = cv::cuda::createGaussianFilter(gpu_warped_frame.type(), gpu_blur_frame.type(), cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
@@ -2045,8 +2095,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     moveWindow("Window2", 710, 0);
     namedWindow("Window3");
     moveWindow("Window3", 1340, 0);
-//    namedWindow("Histogram Clusters");
-//    moveWindow("Histogram Clusters", 710, 700);
+    namedWindow("Histogram Clusters");
+    moveWindow("Histogram Clusters", 710, 700);
 
     if(!new_frame.empty()) {
       imshow("Window1", new_frame);
@@ -2054,14 +2104,15 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     if(!sliding_frame.empty()) {
       cv::circle(sliding_frame, warp_center_, 10, (0,0,255), -1);
       imshow("Window2", sliding_frame);
+      //imshow("Window2", warped_frame);
     }
     if(!resized_frame.empty()){
       imshow("Window3", resized_frame);
     }
-//    if(!cluster_frame.empty()){
-//      resize(cluster_frame, cluster_frame, Size(640, 480));
-//      //imshow("Histogram Clusters", cluster_frame);
-//    }
+    if(!cluster_frame.empty()){
+      resize(cluster_frame, cluster_frame, Size(640, 480));
+      imshow("Histogram Clusters", cluster_frame);
+    }
 
     waitKey(_delay);
   }
