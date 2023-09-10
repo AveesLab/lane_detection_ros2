@@ -2095,24 +2095,24 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     moveWindow("Window2", 710, 0);
     namedWindow("Window3");
     moveWindow("Window3", 1340, 0);
-    namedWindow("Histogram Clusters");
-    moveWindow("Histogram Clusters", 710, 700);
+//    namedWindow("Histogram Clusters");
+//    moveWindow("Histogram Clusters", 710, 700);
 
     if(!new_frame.empty()) {
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {
       cv::circle(sliding_frame, warp_center_, 10, (0,0,255), -1);
-      imshow("Window2", sliding_frame);
-      //imshow("Window2", warped_frame);
+      if (!TEST)imshow("Window2", sliding_frame);
+      else imshow("Window2", warped_frame);
     }
     if(!resized_frame.empty()){
       imshow("Window3", resized_frame);
     }
-    if(!cluster_frame.empty()){
-      resize(cluster_frame, cluster_frame, Size(640, 480));
-      imshow("Histogram Clusters", cluster_frame);
-    }
+//    if(!cluster_frame.empty()){
+//      resize(cluster_frame, cluster_frame, Size(640, 480));
+//      imshow("Histogram Clusters", cluster_frame);
+//    }
 
     waitKey(_delay);
   }
