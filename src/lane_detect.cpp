@@ -1799,19 +1799,19 @@ void LaneDetector::controlSteer() {
     e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
     SteerAngle2_ = ((-1.0f * K3_) * e_values_[1]) + ((-1.0f * K4_) * e_values_[0]);
 
-    /* cspline follow -> center follow  */
-    temp_diff = ((lane_coef_.coef[2].a * pow(height_, 2)) + (lane_coef_.coef[2].b * height_) + lane_coef_.coef[2].c) - (float)cspline_eq_(height_); 
-    temp_diff = abs(temp_diff);
-
-    if (center_select_ == 2 && ((0 <= temp_diff) && (temp_diff <= 10))) {
-      lc_center_follow_ = true; 
-      l1 =  j - i;
-      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
-  
-      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
-      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
-      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-    }
+//    /* cspline follow -> center follow  */
+//    temp_diff = ((lane_coef_.coef[2].a * pow(height_, 2)) + (lane_coef_.coef[2].b * height_) + lane_coef_.coef[2].c) - (float)cspline_eq_(height_); 
+//    temp_diff = abs(temp_diff);
+//
+//    if (center_select_ == 2 && ((0 <= temp_diff) && (temp_diff <= 10))) {
+//      lc_center_follow_ = true; 
+//      l1 =  j - i;
+//      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
+//  
+//      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
+//      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
+//      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+//    }
     /* cspline follow -> center follow  */
   }
   /********************/
@@ -1839,19 +1839,19 @@ void LaneDetector::controlSteer() {
     e_values_[2] = (float)cspline_eq_(k)- car_position;  //e1
     SteerAngle2_ = ((-1.0f * K3_) * e_values_[1]) + ((-1.0f * K4_) * e_values_[0]);
 
-    /* cspline follow -> center follow  */
-    temp_diff = ((lane_coef_.coef[2].a * pow(height_, 2)) + (lane_coef_.coef[2].b * height_) + lane_coef_.coef[2].c) - (float)cspline_eq_(height_); 
-    temp_diff = abs(temp_diff);
-
-    if (center_select_ == 3 && ((0 <= temp_diff) && (temp_diff <= 10))) {
-      lc_center_follow_ = true; 
-      l1 =  j - i;
-      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
-  
-      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
-      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
-      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
-    }
+//    /* cspline follow -> center follow  */
+//    temp_diff = ((lane_coef_.coef[2].a * pow(height_, 2)) + (lane_coef_.coef[2].b * height_) + lane_coef_.coef[2].c) - (float)cspline_eq_(height_); 
+//    temp_diff = abs(temp_diff);
+//
+//    if (center_select_ == 3 && ((0 <= temp_diff) && (temp_diff <= 10))) {
+//      lc_center_follow_ = true; 
+//      l1 =  j - i;
+//      l2 = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - ((lane_coef_.coef[2].a * pow(j, 2)) + (lane_coef_.coef[2].b * j) + lane_coef_.coef[2].c);
+//  
+//      e_values_[0] = ((lane_coef_.coef[2].a * pow(i, 2)) + (lane_coef_.coef[2].b * i) + lane_coef_.coef[2].c) - car_position;  //eL
+//      e_values_[1] = e_values_[0] - (lp_ * (l2 / l1));  //trust_e1
+//      SteerAngle2_ = ((-1.0f * K1_) * e_values_[1]) + ((-1.0f * K2_) * e_values_[0]);
+//    }
     /* cspline follow -> center follow  */
   }
 }
@@ -2000,10 +2000,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       lc_center_follow_ = false;
     }
     else { // normal mode
-//      std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
-//      std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
-      std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
-      std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
+      std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
+      std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
+//      std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
+//      std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
       lc_right_flag_ = false; 
       lc_left_flag_ = false; 
       lc_center_follow_ = true;
