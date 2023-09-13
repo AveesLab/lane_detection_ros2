@@ -114,6 +114,7 @@ private:
   bool TEST = false;
 
   // lane change
+  bool wroi_flag_ = false;
   bool L_flag = true;
   bool R_flag = true;
   bool E_flag = true;
