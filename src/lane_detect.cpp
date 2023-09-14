@@ -1976,7 +1976,6 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
     est_dist = 1.35f - (dist_pixel/480.0f); //rear camera
     if (est_dist > 0.26f && est_dist < 1.35f) est_dist_ = est_dist;
   }
-	est_dist_ = est_dist_ + 0.23f; // 0.23m = 카메라가 보이기 시작하는 지점까지 거리
   original_est_vel = ((est_dist_ - prev_dist) / cycle_time) + cur_vel_;
   est_vel_ = lowPassFilter(cycle_time, original_est_vel, prev_est_vel);
 
