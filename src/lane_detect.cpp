@@ -2032,8 +2032,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     map2_ = r_map2_.clone();
     std::copy(rearROIcorners_.begin(), rearROIcorners_.end(), corners_.begin());
     std::copy(rearROIwarpCorners_.begin(), rearROIwarpCorners_.end(), warpCorners_.begin());
-		lc_right_flag_ = false; 
-		//lc_left_flag_ = true; //FOR ICRA 
+    lc_right_flag_ = false; 
+    //lc_left_flag_ = true; //FOR ICRA 
     lc_center_follow_ = true;
   }
   if(TEST) { // FOR ICRA
