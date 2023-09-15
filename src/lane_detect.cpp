@@ -1284,7 +1284,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 
 float LaneDetector::lowPassFilter(double sampling_time, float est_value, float prev_res){
   float res = 0;
-  float tau = 1.00f; //0.10f
+  float tau = 1.0f; //0.10f
   double st = 0.0;
 
   if (sampling_time > 1.0) st = 1.0;
@@ -1973,8 +1973,8 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
     if (est_dist > 0.26f && est_dist < 1.24f) est_dist_ = est_dist;
   }
   else{
-    est_dist = 1.35f - (dist_pixel/480.0f); //rear camera
-    if (est_dist > 0.26f && est_dist < 1.35f) est_dist_ = est_dist;
+    est_dist = 2.56f - (dist_pixel/206.0f); //rear camera
+    if (est_dist > 0.23f && est_dist < 2.56f) est_dist_ = est_dist;
   }
   original_est_vel = ((est_dist_ - prev_dist) / cycle_time) + cur_vel_;
   est_vel_ = lowPassFilter(cycle_time, original_est_vel, prev_est_vel);
@@ -2032,8 +2032,13 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     map2_ = r_map2_.clone();
     std::copy(rearROIcorners_.begin(), rearROIcorners_.end(), corners_.begin());
     std::copy(rearROIwarpCorners_.begin(), rearROIwarpCorners_.end(), warpCorners_.begin());
+<<<<<<< HEAD
     lc_right_flag_ = false; 
     lc_left_flag_ = true; //FOR ICRA 
+=======
+		lc_right_flag_ = false; 
+		//lc_left_flag_ = true; //FOR ICRA 
+>>>>>>> 93a5573e7cbb043c9357a3c3da4673fbc376f6b2
     lc_center_follow_ = true;
   }
   if(TEST) { // FOR ICRA
@@ -2099,7 +2104,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
     if(rearImageStatus_ == true && est_dist_ != 0) {
-      distance_ = (int)((1.35f - est_dist_)*520.0f)+140; // FOR ICRA
+      distance_ = (int)((2.56f - est_dist_)*206.0f); // FOR ICRA
     }
   }
 
@@ -2123,8 +2128,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     }
     if(!sliding_frame.empty()) {
       cv::circle(sliding_frame, warp_center_, 10, (0,0,255), -1);
-      if (!TEST)imshow("Window2", sliding_frame);
-      else imshow("Window2", warped_frame);
+      imshow("Window2", sliding_frame);
+      //imshow("Window2", warped_frame);
     }
     if(!resized_frame.empty()){
       imshow("Window3", resized_frame);
