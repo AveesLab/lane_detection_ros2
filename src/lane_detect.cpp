@@ -763,11 +763,11 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
     window_height = height / n_windows;
   }
   
-  int E2lane_base = arrMaxIdx(hist, 0, 140, width);
-  int Llane_base = arrMaxIdx(hist, 140, mid_point, width);
-  int Rlane_base = arrMaxIdx(hist, mid_point, width-140, width);
-  int Elane_base = arrMaxIdx(hist, width-140, width, width);
-//  int E2lane_base = 0, Llane_base = 0, Rlane_base = 0, Elane_base = 0;
+//  int E2lane_base = arrMaxIdx(hist, 0, 140, width);
+  int Llane_base = arrMaxIdx(hist, 100, mid_point, width); // 140 ~ mid
+  int Rlane_base = arrMaxIdx(hist, mid_point, width-100, width); // mid ~ w-140
+//  int Elane_base = arrMaxIdx(hist, width-140, width, width);
+  int E2lane_base = 0, Elane_base = 0;
   int cluster_num = 2;
   std::vector<int> maxIndices;
 //
