@@ -743,8 +743,8 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
   int mid_point = width / 2; // 320
   int n_windows = 9;
   int margin = 120 * width / 1280;
-  int min_pix = 40 * width / 1280;
-//  int min_pix = 100 * width / 1280;
+//  int min_pix = 40 * width / 1280;
+  int min_pix = 100 * width / 1280;
 
   int window_width = margin * 2;  // 120
   int window_height;
