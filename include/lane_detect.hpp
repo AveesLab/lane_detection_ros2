@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <limits>
 #include <random>
+#include <condition_variable>
 
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.hpp>
@@ -138,6 +139,16 @@ private:
   bool rearImageStatus_ = false;
   std_msgs::msg::Header rearImageHeader_;
   cv::Mat rearCamImageCopy_;
+
+  /*  Callback Synchronisation  */
+  mutex cam_mutex;
+  bool cam_new_frame_arrived;
+  condition_variable cam_condition_variable;
+  
+  /*  Callback Synchronisation  (Rear)  */
+  mutex rear_cam_mutex;
+  bool rear_cam_new_frame_arrived;
+  condition_variable rear_cam_condition_variable;
 
   std::thread lanedetect_Thread;
   void lanedetectInThread();
