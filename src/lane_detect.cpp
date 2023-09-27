@@ -553,6 +553,9 @@ void LaneDetector::rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr
     rearCamImageCopy_ = rear_cam_image->image.clone();
     frame_ = camImageCopy_;
     rearImageStatus_ = true;
+
+    rear_cam_new_frame_arrived = true;
+    rear_cam_condition_variable.notify_one();
   }
 }
 
