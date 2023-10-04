@@ -307,6 +307,10 @@ LaneDetector::LaneDetector()
   testROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[4], height_);
   /*** rear cam ROI setting ***/
 
+  /*  Synchronisation         */
+  cam_new_frame_arrived = false;
+  rear_cam_new_frame_arrived = false;
+
   /* Lateral Control coefficient */
   this->get_parameter_or("params/K", K_, 0.15f);
   this->get_parameter_or("params/K3", K3_, 0.15f);
@@ -325,14 +329,21 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("params/b/e", b_[4], 1.6722);
 
   LoadParams();
-  
+
   isNodeRunning_ = true;
   lanedetect_Thread = std::thread(&LaneDetector::lanedetectInThread, this);
+
 }
 
 LaneDetector::~LaneDetector(void) 
 {
   isNodeRunning_ = false;
+
+  /*  Unblock the other thread to shutdown the programm smoothly  */
+  cam_new_frame_arrived = true;
+  rear_cam_new_frame_arrived = true;
+  cam_condition_variable.notify_one();
+  rear_cam_condition_variable.notify_one();
 
   ros2_msg::msg::Lane2xav xav;
   xav.coef = lane_coef_.coef;
@@ -354,11 +365,20 @@ void LaneDetector::lanedetectInThread()
   const auto wait_duration = std::chrono::milliseconds(2000);
 
   while(!imageStatus_ && !rearImageStatus_) {
-    RCLCPP_INFO(this->get_logger(), "Waiting for image.\n");
-    if(!isNodeRunning_) {
-      return;
-    }
-    std::this_thread::sleep_for(wait_duration);
+
+    /*  Synchronize at startup  */
+      unique_lock<mutex> lock(cam_mutex);
+      if(cam_condition_variable.wait_for(lock, wait_duration, [this] { return (imageStatus_ && !rearImageStatus_); } )) {
+        /*  Startup done! We are ready to start */
+        RCLCPP_INFO(this->get_logger(), "First image arrived.\n");
+        break;
+      } else {
+        /*  Timeout - Still waiting....         */
+        RCLCPP_INFO(this->get_logger(), "Waiting for image.\n");
+        if(!isNodeRunning_) {
+          return;
+        }
+      }
   }
 
   ros2_msg::msg::Lane2xav xav;
@@ -368,7 +388,14 @@ void LaneDetector::lanedetectInThread()
     struct timeval start_time, end_time, cur_time;
     gettimeofday(&start_time, NULL);
 
-    if(imageStatus_ && droi_ready_) { /* use front_cam  */ 
+    if(imageStatus_ && droi_ready_) { /* use front_cam  */
+
+      /*  Synchronize ImageSubCallback and this thread  */
+      {
+        unique_lock<mutex> lock(cam_mutex);
+        cam_condition_variable.wait(lock, [this] { return cam_new_frame_arrived; } );
+        cam_new_frame_arrived = false;
+      }
       AngleDegree_ = display_img(camImageCopy_, waitKeyDelay_, viewImage_);
       droi_ready_ = false;
      
@@ -392,6 +419,14 @@ void LaneDetector::lanedetectInThread()
       XavPublisher_->publish(xav);
     }
     else if(rearImageStatus_) { /* use rear_cam  */ 
+
+      /*  Synchronize ImageSubCallback and this thread  */
+      {
+        unique_lock<mutex> lock(rear_cam_mutex);
+        rear_cam_condition_variable.wait(lock, [this] { return rear_cam_new_frame_arrived; } );
+        rear_cam_new_frame_arrived = false;
+      }
+
       AngleDegree_ = display_img(rearCamImageCopy_, waitKeyDelay_, viewImage_);
      
       xav.coef = lane_coef_.coef;
@@ -495,6 +530,8 @@ void LaneDetector::ImageSubCallback(const sensor_msgs::msg::Image::SharedPtr msg
     camImageCopy_ = cam_image->image.clone();
     prev_img = camImageCopy_;
     imageStatus_ = true;
+    cam_new_frame_arrived = true;
+    cam_condition_variable.notify_one();
   }
   else if(!prev_img.empty()) {
     camImageCopy_ = prev_img;
@@ -516,6 +553,9 @@ void LaneDetector::rearImageSubCallback(const sensor_msgs::msg::Image::SharedPtr
     rearCamImageCopy_ = rear_cam_image->image.clone();
     frame_ = camImageCopy_;
     rearImageStatus_ = true;
+
+    rear_cam_new_frame_arrived = true;
+    rear_cam_condition_variable.notify_one();
   }
 }
 
@@ -2065,7 +2105,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   filters->apply(gpu_warped_frame, gpu_blur_frame);
   cuda::cvtColor(gpu_blur_frame, gpu_gray_frame, COLOR_BGR2GRAY);
   gpu_gray_frame.download(gray_frame);
-
+  
   for(int y = height_/2; y < gray_frame.rows; y++) {
       for(int x = 0; x < gray_frame.cols; x++) {
           if(gray_frame.at<uchar>(y, x) == 0) {
@@ -2074,8 +2114,11 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       }
   }
 
+
+
   /* adaptive Threshold */
   adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
+
 
 //  if(prev_frame.empty()) {
 //    prev_frame = binary_frame;
@@ -2084,7 +2127,6 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //  prev_frame = binary_frame;
 //
 //  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
-
 
   /* estimate Distance */
   if ((x_!=0 && y_!=0 && w_!=0 && h_!=0) || (rx_!=0 && ry_!=0 && rw_!=0 && rh_!=0)){
@@ -2138,6 +2180,9 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     waitKey(_delay);
   }
   clear_release();
+
+
+  
 
   return SteerAngle_;
 }
