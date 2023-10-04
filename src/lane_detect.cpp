@@ -106,8 +106,8 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("ROI/front_cam/extra_up",extra_up[0], 0);
   this->get_parameter_or("ROI/front_cam/extra_down",extra_down[0], 0);
 
-  this->get_parameter_or("threshold/box_size", Threshold_box_size_, 63);
-  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 41);
+  this->get_parameter_or("threshold/box_size", Threshold_box_size_, 71);
+  this->get_parameter_or("threshold/box_offset", Threshold_box_offset_, 40);
 
   distance_ = 0;
 
@@ -140,7 +140,8 @@ LaneDetector::LaneDetector()
   /*** front cam ROI setting ***/
 
   /* Lateral Control coefficient */
-  this->get_parameter_or("params/K", K_, 0.15f);
+  this->get_parameter_or("params/K1", K1_, 0.15f);
+  this->get_parameter_or("params/K2", K2_, 0.15f);
 
   this->get_parameter_or("params/a/a", a_[0], 0.);
   this->get_parameter_or("params/a/b", a_[1], -0.37169);
@@ -236,11 +237,11 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
   if(imageStatus_) {
     //cur_vel_ = msg->cur_vel;
-    cur_vel_ = 0.6f; // K1_ = K2_ = K_ = 0.15
-    distance_ = msg->cur_dist;
+    //cur_vel_ = 0.6f; // K1_ = K2_ = K_ = 0.15
+    //distance_ = msg->cur_dist;
     droi_ready_ = true;
-  
-    get_steer_coef(cur_vel_);
+    
+    //get_steer_coef(cur_vel_);
   }
 }
 
@@ -276,7 +277,7 @@ int LaneDetector::arrMaxIdx(int hist[], int start, int end, int Max) {
     }
   }
   if ((max_index == -1) || (hist[max_index] < (size_t)min_pix)) {
-    cout << "ERROR : hist range" << endl;
+//    cout << "ERROR : hist range" << endl;
     return -1;
   }
   return max_index;
@@ -805,21 +806,21 @@ void LaneDetector::clear_release() {
   center_y_.clear();
 }
 
-void LaneDetector::get_steer_coef(float vel){
-  float value;
-  if (vel > 1.2f)
-    value = 1.2f;
-  else
-    value = vel;
-
-  if (value < 0.65f){
-    K1_ = K2_ =  K_;
-  }
-  else{
-    K1_ = (a_[0] * pow(value, 4)) + (a_[1] * pow(value, 3)) + (a_[2] * pow(value, 2)) + (a_[3] * value) + a_[4];
-    K2_ = (b_[0] * pow(value, 4)) + (b_[1] * pow(value, 3)) + (b_[2] * pow(value, 2)) + (b_[3] * value) + b_[4];
-  }
-}
+//void LaneDetector::get_steer_coef(float vel){
+//  float value;
+//  if (vel > 1.2f)
+//    value = 1.2f;
+//  else
+//    value = vel;
+//
+//  if (value < 0.65f){
+//    K1_ = K2_ =  K_;
+//  }
+//  else{
+//    K1_ = (a_[0] * pow(value, 4)) + (a_[1] * pow(value, 3)) + (a_[2] * pow(value, 2)) + (a_[3] * value) + a_[4];
+//    K2_ = (b_[0] * pow(value, 4)) + (b_[1] * pow(value, 3)) + (b_[2] * pow(value, 2)) + (b_[3] * value) + b_[4];
+//  }
+//}
 
 void LaneDetector::controlSteer() {
   Mat l_fit(left_coef_), r_fit(right_coef_), c_fit(center_coef_);
