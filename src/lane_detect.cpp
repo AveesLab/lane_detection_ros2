@@ -2017,7 +2017,9 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
     est_dist = 2.56f - (dist_pixel/206.0f); //rear camera
     if (est_dist > 0.23f && est_dist < 2.56f) est_dist_ = est_dist;
   }
-  original_est_vel = ((est_dist_ - prev_dist) / cycle_time) + cur_vel_;
+
+  if (prev_dist == 0) prev_dist = est_dist_;
+  original_est_vel = ((prev_dist - est_dist_) / cycle_time) + cur_vel_;
   est_vel_ = lowPassFilter(cycle_time, original_est_vel, prev_est_vel);
 
   prev_est_vel = est_vel_;
@@ -2156,8 +2158,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     moveWindow("Window1", 0, 0);
     namedWindow("Window2");
     moveWindow("Window2", 710, 0);
-    namedWindow("Window3");
-    moveWindow("Window3", 1340, 0);
+//    namedWindow("Window3");
+//    moveWindow("Window3", 1340, 0);
 //    namedWindow("Histogram Clusters");
 //    moveWindow("Histogram Clusters", 710, 700);
 
@@ -2169,9 +2171,9 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       imshow("Window2", sliding_frame);
       //imshow("Window2", warped_frame);
     }
-    if(!resized_frame.empty()){
-      imshow("Window3", resized_frame);
-    }
+//    if(!resized_frame.empty()){
+//      imshow("Window3", resized_frame);
+//    }
 //    if(!cluster_frame.empty()){
 //      resize(cluster_frame, cluster_frame, Size(640, 480));
 //      imshow("Histogram Clusters", cluster_frame);
