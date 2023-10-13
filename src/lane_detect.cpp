@@ -1325,7 +1325,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 
 float LaneDetector::lowPassFilter(double sampling_time, float est_value, float prev_res){
   float res = 0;
-  float tau = 1.0f; //0.10f
+  float tau = 0.5f; 
   double st = 0.0;
 
   if (sampling_time > 1.0) st = 1.0;
