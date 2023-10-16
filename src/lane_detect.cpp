@@ -2131,7 +2131,15 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
 
   /* estimate Distance */
-  if ((x_!=0 && y_!=0 && w_!=0 && h_!=0) || (rx_!=0 && ry_!=0 && rw_!=0 && rh_!=0)){
+  if (((x_ > 0 && x_ < 640) && \
+        (y_ > 0 && y_ < 480) && \
+        (w_ > 0 && w_ < 640) && \
+        (h_ > 0 && h_ < 480)) || \
+      ((rx_ > 0 && rx_ < 640) && \
+       (ry_ > 0 && ry_ < 480) && \
+       (rw_ > 0 && rw_ < 640) && \
+       (rh_ > 0 && rh_ < 480))) 
+  {
     gettimeofday(&endTime, NULL);
     if (!flag){
       diffTime = (endTime.tv_sec - start_.tv_sec) + (endTime.tv_usec - start_.tv_usec)/1000000.0;
@@ -2147,6 +2155,15 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       distance_ = (int)((2.56f - est_dist_)*206.0f); // FOR ICRA
     }
   }
+  else {
+    est_dist_ = 0.0f;
+    est_vel_ = 0.0f;
+
+    if(rearImageStatus_ == true) {
+      distance_ = 10.0f; 
+    }
+  }
+
 
   sliding_frame = detect_lines_sliding_window(binary_frame, _view);
   controlSteer();
