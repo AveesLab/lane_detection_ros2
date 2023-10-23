@@ -284,7 +284,7 @@ LaneDetector::LaneDetector()
   rearROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[3], height_);
   /*** rear cam ROI setting ***/
 
-  /*** rear cam ROI setting ***/
+  /*** front cam ROI 2.5m setting ***/
   testROIcorners_.resize(4);
   testROIwarpCorners_.resize(4);
 
@@ -305,7 +305,7 @@ LaneDetector::LaneDetector()
   testROIwarpCorners_[1] = Point2f(width_ - wide_extra_upside_[4], 0.0);
   testROIwarpCorners_[2] = Point2f(wide_extra_downside_[4], height_);
   testROIwarpCorners_[3] = Point2f(width_ - wide_extra_downside_[4], height_);
-  /*** rear cam ROI setting ***/
+  /*** front cam ROI 2.5m setting ***/
 
   /*  Synchronisation         */
   cam_new_frame_arrived = false;
@@ -470,7 +470,7 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
   if(imageStatus_) {
     cur_vel_ = msg->cur_vel;
-    distance_ = msg->cur_dist;
+    //distance_ = msg->cur_dist; // for ICRA
     droi_ready_ = true;
   
     get_steer_coef(cur_vel_);
@@ -1325,7 +1325,19 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 
 float LaneDetector::lowPassFilter(double sampling_time, float est_value, float prev_res){
   float res = 0;
-  float tau = 0.5f; 
+  float tau = 0.3f; 
+  double st = 0.0;
+
+  if (sampling_time > 1.0) st = 1.0;
+  else st = sampling_time;
+  res = ((tau * prev_res) + (st * est_value)) / (tau + st);
+
+  return res;
+}
+
+float LaneDetector::lowPassFilter2(double sampling_time, float est_value, float prev_res){
+  float res = 0;
+  float tau = 0.3f; 
   double st = 0.0;
 
   if (sampling_time > 1.0) st = 1.0;
@@ -2009,21 +2021,29 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   dist_pixel = warp_center.y;
 
   if (imageStatus_){
-    est_dist = 1.24f - (dist_pixel/490.0f);
-    //est_dist = 1.2f - (dist_pixel/500.0f); //front-facing camera
-    if (est_dist > 0.26f && est_dist < 1.24f) est_dist_ = est_dist;
+    est_dist = 2.50f - (dist_pixel/214.0f); //front camera
+    if (est_dist > 0.25f && est_dist < 2.51f) {
+      est_dist_ = est_dist;
+    }
   }
   else{
-    est_dist = 2.56f - (dist_pixel/206.0f); //rear camera
-    if (est_dist > 0.23f && est_dist < 2.56f) est_dist_ = est_dist;
+    est_dist = 2.50f - (dist_pixel/214.0f); //rear camera
+    if (est_dist > 0.25f && est_dist < 2.51f) {
+      est_dist_ = est_dist;
+    }
   }
 
-  if (prev_dist == 0) prev_dist = est_dist_;
-  original_est_vel = ((prev_dist - est_dist_) / cycle_time) + cur_vel_;
-  est_vel_ = lowPassFilter(cycle_time, original_est_vel, prev_est_vel);
+  if (prev_dist == 0){
+    prev_dist = est_dist_;
+  } 
 
-  prev_est_vel = est_vel_;
-  prev_dist = est_dist_; 
+  if (est_dist_ != 0) {
+    original_est_vel = ((prev_dist - est_dist_) / cycle_time) + cur_vel_;
+    est_vel_ = lowPassFilter(cycle_time, original_est_vel, prev_est_vel);
+
+    prev_est_vel = est_vel_;
+    prev_dist = est_dist_; 
+  }
 
   return res_frame;
 }
@@ -2076,10 +2096,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     std::copy(rearROIcorners_.begin(), rearROIcorners_.end(), corners_.begin());
     std::copy(rearROIwarpCorners_.begin(), rearROIwarpCorners_.end(), warpCorners_.begin());
     lc_right_flag_ = false; 
-    //lc_left_flag_ = true; //FOR ICRA 
+    lc_left_flag_ = false;  
     lc_center_follow_ = true;
   }
-  if(TEST) { // FOR ICRA
+  if(imageStatus_ && TEST) { // FOR ICRA
     std::copy(testROIcorners_.begin(), testROIcorners_.end(), corners_.begin());
     std::copy(testROIwarpCorners_.begin(), testROIwarpCorners_.end(), warpCorners_.begin());
   } 
@@ -2151,19 +2171,21 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     }
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
-    if(rearImageStatus_ == true && est_dist_ != 0) {
-      distance_ = (int)((2.56f - est_dist_)*206.0f); // FOR ICRA
+    if(imageStatus_ && est_dist_ != 0) {
+      distance_ = (int)((2.50f - est_dist_)*214.0f); // FOR ICRA
+    }
+    else if(rearImageStatus_ && est_dist_ != 0) {
+      distance_ = (int)((2.50f - est_dist_)*214.0f); // FOR ICRA
     }
   }
   else {
-    est_dist_ = 0.0f;
-    est_vel_ = 0.0f;
+//    est_dist_ = 0.0f; // box튀면 값이 0됨 (LPF로 처리도 안됨) 
+//    est_vel_ = 0.0f;
 
-    if(rearImageStatus_ == true) {
+    if(rearImageStatus_) {
       distance_ = 10.0f; 
     }
   }
-
 
   sliding_frame = detect_lines_sliding_window(binary_frame, _view);
   controlSteer();

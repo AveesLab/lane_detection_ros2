@@ -85,6 +85,7 @@ private:
   Mat detect_lines_sliding_window(Mat _frame, bool _view);
   Point warpPoint(Point center, Mat trans);
   float lowPassFilter(double sampling_time, float est_value, float prev_res);
+  float lowPassFilter2(double sampling_time, float est_value, float prev_res);
   Mat estimateDistance(Mat frame, Mat trans, double cycle_time, bool _view);
   Mat draw_lane(Mat _sliding_frame, Mat _frame);
   //Mat drawBox(Mat frame);
