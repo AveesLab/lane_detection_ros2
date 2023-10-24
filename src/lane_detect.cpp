@@ -95,15 +95,15 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("Calibration/r_dist_coef/e",r_dist_coef[4], -0.022565312043601477);
 
   /*** front cam calibration  ***/
-  Mat f_camera_matrix = Mat::eye(3, 3, CV_64FC1);
-  Mat f_dist_coeffs = Mat::zeros(1, 5, CV_64FC1);
+  f_camera_matrix = Mat::eye(3, 3, CV_64FC1);
+  f_dist_coeffs = Mat::zeros(1, 5, CV_64FC1);
   f_camera_matrix = (Mat1d(3, 3) << f_matrix[0], f_matrix[1], f_matrix[2], f_matrix[3], f_matrix[4], f_matrix[5], f_matrix[6], f_matrix[7], f_matrix[8]);
   f_dist_coeffs = (Mat1d(1, 5) << f_dist_coef[0], f_dist_coef[1], f_dist_coef[2], f_dist_coef[3], f_dist_coef[4]);
   initUndistortRectifyMap(f_camera_matrix, f_dist_coeffs, Mat(), f_camera_matrix, Size(640, 480), CV_32FC1, f_map1_, f_map2_);
 
   /*** rear cam calibration  ***/
-  Mat r_camera_matrix = Mat::eye(3, 3, CV_64FC1);
-  Mat r_dist_coeffs = Mat::zeros(1, 5, CV_64FC1);
+  r_camera_matrix = Mat::eye(3, 3, CV_64FC1);
+  r_dist_coeffs = Mat::zeros(1, 5, CV_64FC1);
   r_camera_matrix = (Mat1d(3, 3) << r_matrix[0], r_matrix[1], r_matrix[2], r_matrix[3], r_matrix[4], r_matrix[5], r_matrix[6], r_matrix[7], r_matrix[8]);
   r_dist_coeffs = (Mat1d(1, 5) << r_dist_coef[0], r_dist_coef[1], r_dist_coef[2], r_dist_coef[3], r_dist_coef[4]);
   initUndistortRectifyMap(r_camera_matrix, r_dist_coeffs, Mat(), r_camera_matrix, Size(640, 480), CV_32FC1, r_map1_, r_map2_);
@@ -466,6 +466,19 @@ void LaneDetector::LoadParams(void)
   this->get_parameter_or("LaneDetector/steer_angle2",SteerAngle2_, 0.0f);
 }
 
+cv::Point2f LaneDetector::transformPoint(const cv::Point& pt, const cv::Mat& camera_matrix, const cv::Mat& dist_coeffs) {
+    std::vector<cv::Point2f> srcPoints = { cv::Point2f(pt.x, pt.y) }; // 정수형 좌표를 부동소수점으로 변환
+    std::vector<cv::Point2f> dstPoints;
+
+    cv::undistortPoints(srcPoints, dstPoints, camera_matrix, dist_coeffs, cv::noArray(), camera_matrix);
+
+    if (dstPoints.size() > 0) {
+        return dstPoints[0];
+    } else {
+        return cv::Point2f(pt.x, pt.y);  // 변환에 실패한 경우 원래 좌표 반환
+    }
+}
+
 void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
   if(imageStatus_) {
@@ -478,20 +491,27 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
     lc_right_flag = msg->lc_right_flag;
     lc_left_flag = msg->lc_left_flag;
 
+    cv::Point2f topLeft = transformPoint(cv::Point(msg->x, msg->y), f_camera_matrix, f_dist_coeffs);
+    cv::Point2f bottomRight = transformPoint(cv::Point(msg->x + msg->w, msg->y + msg->h), f_camera_matrix, f_dist_coeffs);
+
     name_ = msg->name;
-    x_ = msg->x;
-    y_ = msg->y;
-    w_ = msg->w;
-    h_ = msg->h;
+    x_ = static_cast<int>(topLeft.x);
+    y_ = static_cast<int>(topLeft.y);
+    w_ = static_cast<int>(bottomRight.x - topLeft.x);
+    h_ = static_cast<int>(bottomRight.y - topLeft.y);
   }
 
   if(rearImageStatus_) {
     cur_vel_ = msg->cur_vel;
+
+    cv::Point2f topLeft = transformPoint(cv::Point(msg->rx, msg->ry),r_camera_matrix, r_dist_coeffs);
+    cv::Point2f bottomRight = transformPoint(cv::Point(msg->rx + msg->rw, msg->ry + msg->rh), r_camera_matrix, r_dist_coeffs);
+
     r_name_ = msg->r_name;
-    rx_ = msg->rx;
-    ry_ = msg->ry;
-    rw_ = msg->rw;
-    rh_ = msg->rh;
+    rx_ = static_cast<int>(topLeft.x);
+    ry_ = static_cast<int>(topLeft.y);
+    rw_ = static_cast<int>(bottomRight.x - topLeft.x);
+    rh_ = static_cast<int>(bottomRight.y - topLeft.y);
   }
 }
 
@@ -1987,20 +2007,35 @@ tk::spline LaneDetector::cspline() {
   return cspline_eq;
 }
 
-//Mat LaneDetector::drawBox(Mat frame)
-//{
-//  std::string name = name_;
-//  Size text_size = getTextSize(name, FONT_HERSHEY_COMPLEX_SMALL, 1.2, 2, 0);
-//  int max_width = (text_size.width > w_ + 2) ? text_size.width : (w_ + 2);
-//  Scalar color(55, 200, 55); // trailer
-//  //Scalar color(255, 0, 255); // tractor
-//  max_width = max(max_width, (int)w_ + 2);
-//  rectangle(frame, Rect(x_, y_, w_, h_), color, 2);
-//  rectangle(frame, Point2f(max((int)x_ - 1, 0), max((int)y_ - 35, 0)), Point2f(min((int)x_ + max_width, frame.cols - 1), min((int)y_, frame.rows - 1)), color, -1, 8, 0);
-//  putText(frame, name, Point2f(x_, y_-16), FONT_HERSHEY_COMPLEX_SMALL, 1.2, Scalar(0,0,0), 2);
-//  return frame;
-//}
+Mat LaneDetector::drawBox(Mat frame)
+{
+  std::string name;
+  int x, y, w, h;
 
+  if(imageStatus_) {
+    name = name_;
+    x = x_;
+    y = y_;
+    w = w_;
+    h = h_;
+  }
+  else if(rearImageStatus_) {
+    name = r_name_;
+    x = rx_;
+    y = ry_;
+    w = rw_;
+    h = rh_;
+  }
+  Size text_size = getTextSize(name, FONT_HERSHEY_COMPLEX_SMALL, 1.2, 2, 0);
+  int max_width = (text_size.width > w + 2) ? text_size.width : (w + 2);
+  Scalar color(55, 200, 55); // trailer
+  //Scalar color(255, 0, 255); // tractor
+  max_width = max(max_width, (int)w + 2);
+  rectangle(frame, Rect(x, y, w, h), color, 2);
+  rectangle(frame, Point2f(max((int)x - 1, 0), max((int)y - 35, 0)), Point2f(min((int)x + max_width, frame.cols - 1), min((int)y, frame.rows - 1)), color, -1, 8, 0);
+  putText(frame, name, Point2f(x, y-16), FONT_HERSHEY_COMPLEX_SMALL, 1.2, Scalar(0,0,0), 2);
+  return frame;
+}
 
 Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool _view){
   Mat res_frame;
@@ -2011,7 +2046,7 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   static float prev_dist = 0.f, prev_est_vel = 0.f;
 
   frame.copyTo(res_frame);
-  if(imageStatus_) center_ = Point(x_ + w_ / 2, y_ + h_); // front-cam yolo
+  if(imageStatus_) center_ = Point((x_ + w_ / 2), (y_ + h_)); // front-cam yolo
   else center_ = Point(rx_ + rw_ / 2, ry_ + rh_); // rear-cam yolo 
   warp_center = warpPoint(center_, trans);
   warp_center.x = lowPassFilter(cycle_time, warp_center.x, prev_warp_center.x);
@@ -2021,13 +2056,13 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   dist_pixel = warp_center.y;
 
   if (imageStatus_){
-    est_dist = 2.50f - (dist_pixel/214.0f); //front camera
-    if (est_dist > 0.25f && est_dist < 2.51f) {
+    est_dist = 2.50f - (dist_pixel/202.0f); //front camera
+    if (est_dist > 0.12f && est_dist < 2.51f) {
       est_dist_ = est_dist;
     }
   }
   else{
-    est_dist = 2.50f - (dist_pixel/214.0f); //rear camera
+    est_dist = 2.50f - (dist_pixel/204.0f); //rear camera
     if (est_dist > 0.25f && est_dist < 2.51f) {
       est_dist_ = est_dist;
     }
@@ -2172,10 +2207,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
     if(imageStatus_ && est_dist_ != 0) {
-      distance_ = (int)((2.50f - est_dist_)*214.0f); // FOR ICRA
+      distance_ = (int)((2.50f - est_dist_)*202.0f); // FOR ICRA
     }
     else if(rearImageStatus_ && est_dist_ != 0) {
-      distance_ = (int)((2.50f - est_dist_)*214.0f); // FOR ICRA
+      distance_ = (int)((2.50f - est_dist_)*204.0f); // FOR ICRA
     }
   }
   else {
@@ -2203,6 +2238,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //    moveWindow("Histogram Clusters", 710, 700);
 
     if(!new_frame.empty()) {
+      cv::circle(new_frame, center_, 10, (0,0,255), -1);
+      new_frame = drawBox(new_frame);
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {

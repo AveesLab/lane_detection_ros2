@@ -88,10 +88,11 @@ private:
   float lowPassFilter2(double sampling_time, float est_value, float prev_res);
   Mat estimateDistance(Mat frame, Mat trans, double cycle_time, bool _view);
   Mat draw_lane(Mat _sliding_frame, Mat _frame);
-  //Mat drawBox(Mat frame);
+  Mat drawBox(Mat frame);
   void controlSteer();
   void clear_release();
   tk::spline cspline();
+  cv::Point2f transformPoint(const cv::Point& pt, const cv::Mat& camera_matrix, const cv::Mat& dist_coeffs); 
 
   //Publisher
   rclcpp::Publisher<ros2_msg::msg::Lane2xav>::SharedPtr XavPublisher_;
@@ -155,6 +156,8 @@ private:
   void lanedetectInThread();
 
   /********** Camera calibration **********/
+  Mat f_camera_matrix, f_dist_coeffs;
+  Mat r_camera_matrix, r_dist_coeffs;
   Mat map1_, map2_, f_map1_, f_map2_, r_map1_, r_map2_;
   int canny_thresh1_, canny_thresh2_;
 
