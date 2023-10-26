@@ -1345,7 +1345,7 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
 
 float LaneDetector::lowPassFilter(double sampling_time, float est_value, float prev_res){
   float res = 0;
-  float tau = 0.3f; 
+  float tau = 0.1f; 
   double st = 0.0;
 
   if (sampling_time > 1.0) st = 1.0;
@@ -2056,13 +2056,13 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   dist_pixel = warp_center.y;
 
   if (imageStatus_){
-    est_dist = 2.50f - (dist_pixel/202.0f); //front camera
+    est_dist = 2.50f - (dist_pixel/206.0f); //front camera
     if (est_dist > 0.12f && est_dist < 2.51f) {
       est_dist_ = est_dist;
     }
   }
   else{
-    est_dist = 2.50f - (dist_pixel/204.0f); //rear camera
+    est_dist = 2.50f - (dist_pixel/214.0f); //rear camera
     if (est_dist > 0.25f && est_dist < 2.51f) {
       est_dist_ = est_dist;
     }
@@ -2186,14 +2186,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
 
   /* estimate Distance */
-  if (((x_ > 0 && x_ < 640) && \
-        (y_ > 0 && y_ < 480) && \
-        (w_ > 0 && w_ < 640) && \
-        (h_ > 0 && h_ < 480)) || \
-      ((rx_ > 0 && rx_ < 640) && \
-       (ry_ > 0 && ry_ < 480) && \
-       (rw_ > 0 && rw_ < 640) && \
-       (rh_ > 0 && rh_ < 480))) 
+  if(name_ != "" || r_name_ != "")
   {
     gettimeofday(&endTime, NULL);
     if (!flag){
@@ -2207,10 +2200,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
     if(imageStatus_ && est_dist_ != 0) {
-      distance_ = (int)((2.50f - est_dist_)*202.0f); // FOR ICRA
+      distance_ = (int)((2.50f - est_dist_)*206.0f); // FOR ICRA
     }
     else if(rearImageStatus_ && est_dist_ != 0) {
-      distance_ = (int)((2.50f - est_dist_)*204.0f); // FOR ICRA
+      distance_ = (int)((2.50f - est_dist_)*214.0f); // FOR ICRA
     }
   }
   else {
