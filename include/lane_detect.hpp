@@ -115,6 +115,8 @@ private:
   ros2_msg::msg::Lane2xav lane_coef_;
   int center_select_ = 1;
   bool TEST = false;
+  float frontRoi_ratio = 0.0f;
+  float rearRoi_ratio = 0.0f;
 
   // lane change
   bool wroi_flag_ = false;

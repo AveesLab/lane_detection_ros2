@@ -134,8 +134,8 @@ LaneDetector::LaneDetector()
 
   this->get_parameter_or("ROI/dynamic_roi",option_, true);
   this->get_parameter_or("ROI/threshold",threshold_, 128);
-  this->get_parameter_or("ROI/canny/thresh1",canny_thresh1_, 100);
-  this->get_parameter_or("ROI/canny/thresh2",canny_thresh2_, 200);
+  this->get_parameter_or("ROI/frontRoi_ratio",frontRoi_ratio, 204.0f);
+  this->get_parameter_or("ROI/rearRoi_ratio",rearRoi_ratio, 210.0f);
 
   this->get_parameter_or("ROI/front_cam/top_gap",t_gap[0], 0.336f);
   this->get_parameter_or("ROI/front_cam/bot_gap",b_gap[0], 0.078f);
@@ -2056,13 +2056,13 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   dist_pixel = warp_center.y;
 
   if (imageStatus_){
-    est_dist = 2.50f - (dist_pixel/207.0f); //front camera
+    est_dist = 2.50f - (dist_pixel/frontRoi_ratio); //front camera
     if (est_dist > 0.15f && est_dist < 2.51f) {
       est_dist_ = est_dist;
     }
   }
   else{
-    est_dist = 2.50f - (dist_pixel/214.0f); //rear camera
+    est_dist = 2.50f - (dist_pixel/rearRoi_ratio); //rear camera
     if (est_dist > 0.25f && est_dist < 2.51f) {
       est_dist_ = est_dist;
     }
@@ -2200,10 +2200,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
     if(imageStatus_ && est_dist_ != 0) {
-      distance_ = (int)((2.50f - est_dist_)*207.0f); // FOR ICRA
+      distance_ = (int)((2.50f - est_dist_)*frontRoi_ratio); // FOR ICRA
     }
     else if(rearImageStatus_ && est_dist_ != 0) {
-      distance_ = (int)((2.50f - est_dist_)*214.0f); // FOR ICRA
+      distance_ = (int)((2.50f - est_dist_)*rearRoi_ratio); // FOR ICRA
     }
   }
   else {
