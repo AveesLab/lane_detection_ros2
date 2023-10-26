@@ -2056,8 +2056,8 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   dist_pixel = warp_center.y;
 
   if (imageStatus_){
-    est_dist = 2.50f - (dist_pixel/206.0f); //front camera
-    if (est_dist > 0.12f && est_dist < 2.51f) {
+    est_dist = 2.50f - (dist_pixel/207.0f); //front camera
+    if (est_dist > 0.15f && est_dist < 2.51f) {
       est_dist_ = est_dist;
     }
   }
@@ -2200,7 +2200,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
     if(imageStatus_ && est_dist_ != 0) {
-      distance_ = (int)((2.50f - est_dist_)*206.0f); // FOR ICRA
+      distance_ = (int)((2.50f - est_dist_)*207.0f); // FOR ICRA
     }
     else if(rearImageStatus_ && est_dist_ != 0) {
       distance_ = (int)((2.50f - est_dist_)*214.0f); // FOR ICRA
