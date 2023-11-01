@@ -210,6 +210,7 @@ private:
   float eL_height2_;
   float K_;
   double a_[5], b_[5];
+  double a2_[3], b2_[3];
   vector<float> e_values_;
   float target_x_;
   float target_y_;

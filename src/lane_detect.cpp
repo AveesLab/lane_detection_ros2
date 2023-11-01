@@ -328,6 +328,13 @@ LaneDetector::LaneDetector()
   this->get_parameter_or("params/b/d", b_[3], -4.9047);
   this->get_parameter_or("params/b/e", b_[4], 1.6722);
 
+  this->get_parameter_or("params/a2/a", a2_[0], 0.5);
+  this->get_parameter_or("params/a2/b", a2_[1], -0.95);
+  this->get_parameter_or("params/a2/c", a2_[2], 0.52);
+
+  this->get_parameter_or("params/b2/a", b2_[0], -0.0875);
+  this->get_parameter_or("params/b2/b", b2_[1], 0.0575);
+  this->get_parameter_or("params/b2/c", b2_[2], 0.17);
   LoadParams();
 
   isNodeRunning_ = true;
@@ -1796,6 +1803,9 @@ void LaneDetector::get_steer_coef(float vel){
     value = 1.2f;
   else
     value = vel;
+
+  K3_ = (a2_[0] * pow(value, 2)) + (a2_[1] * pow(value, 1)) + a2_[2];
+  K4_ = (b2_[0] * pow(value, 2)) + (b2_[1] * pow(value, 1)) + b2_[2];
 
   if (value < 0.65f){
     K1_ = K2_ =  K_;
