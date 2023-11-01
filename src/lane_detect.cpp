@@ -2010,6 +2010,7 @@ tk::spline LaneDetector::cspline() {
 Mat LaneDetector::drawBox(Mat frame)
 {
   std::string name;
+  Scalar color;
   int x, y, w, h;
 
   if(imageStatus_) {
@@ -2026,10 +2027,12 @@ Mat LaneDetector::drawBox(Mat frame)
     w = rw_;
     h = rh_;
   }
+
+  if (name == "SV1") color = cv::Scalar(255, 0, 255);
+  else if (name == "SV2") color = cv::Scalar(55, 200, 55);
+
   Size text_size = getTextSize(name, FONT_HERSHEY_COMPLEX_SMALL, 1.2, 2, 0);
   int max_width = (text_size.width > w + 2) ? text_size.width : (w + 2);
-  Scalar color(55, 200, 55); // trailer
-  //Scalar color(255, 0, 255); // tractor
   max_width = max(max_width, (int)w + 2);
   rectangle(frame, Rect(x, y, w, h), color, 2);
   rectangle(frame, Point2f(max((int)x - 1, 0), max((int)y - 35, 0)), Point2f(min((int)x + max_width, frame.cols - 1), min((int)y, frame.rows - 1)), color, -1, 8, 0);
@@ -2057,15 +2060,19 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
 
   if (imageStatus_){
     est_dist = 2.50f - (dist_pixel/frontRoi_ratio); //front camera
-    if (est_dist > 0.15f && est_dist < 2.51f) {
+    if (est_dist > 0.30f && est_dist < 2.50f) {
       est_dist_ = est_dist;
     }
+    else 
+      est_dist_ = 0.0f;
   }
   else{
     est_dist = 2.50f - (dist_pixel/rearRoi_ratio); //rear camera
-    if (est_dist > 0.25f && est_dist < 2.51f) {
+    if (est_dist > 0.30f && est_dist < 2.50f) {
       est_dist_ = est_dist;
     }
+    else 
+      est_dist_ = 0.0f;
   }
 
   if (prev_dist == 0){
@@ -2231,7 +2238,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //    moveWindow("Histogram Clusters", 710, 700);
 
     if(!new_frame.empty()) {
-      cv::circle(new_frame, center_, 10, (0,0,255), -1);
+//      cv::circle(new_frame, center_, 10, (0,0,255), -1);
       new_frame = drawBox(new_frame);
       imshow("Window1", new_frame);
     }
