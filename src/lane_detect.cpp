@@ -490,7 +490,7 @@ void LaneDetector::XavSubCallback(const ros2_msg::msg::Xav2lane::SharedPtr msg)
 {
   if(imageStatus_) {
     cur_vel_ = msg->cur_vel;
-    //distance_ = msg->cur_dist; // for ICRA
+    distance_ = msg->cur_dist; // for ICRA
     droi_ready_ = true;
   
     get_steer_coef(cur_vel_);
@@ -2217,7 +2217,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
     if(imageStatus_ && est_dist_ != 0) {
-      distance_ = (int)((2.50f - est_dist_)*frontRoi_ratio); // FOR ICRA
+      //distance_ = (int)((2.50f - est_dist_)*frontRoi_ratio); // FOR ICRA
     }
     else if(rearImageStatus_ && est_dist_ != 0) {
       distance_ = (int)((2.50f - est_dist_)*rearRoi_ratio); // FOR ICRA
