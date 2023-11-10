@@ -164,8 +164,8 @@ private:
   int canny_thresh1_, canny_thresh2_;
 
   /********** Lane_detect ***********/
-  vector<Point2f> corners_, fROIcorners_, rROIcorners_, lROIcorners_, rearROIcorners_, testROIcorners_;
-  vector<Point2f> warpCorners_, fROIwarpCorners_, rROIwarpCorners_, lROIwarpCorners_, rearROIwarpCorners_, testROIwarpCorners_;
+  vector<Point2f> test_corners_, corners_, fROIcorners_, rROIcorners_, lROIcorners_, rearROIcorners_, testROIcorners_;
+  vector<Point2f> test_warpCorners_, warpCorners_, fROIwarpCorners_, rROIwarpCorners_, lROIwarpCorners_, rearROIwarpCorners_, testROIwarpCorners_;
 
   int last_Llane_base_;
   int last_Rlane_base_;
