@@ -2233,7 +2233,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       diffTime = (endTime.tv_sec - startTime.tv_sec) + (endTime.tv_usec - startTime.tv_usec)/1000000.0;
       startTime = endTime;
     }
-    sliding_frame = estimateDistance(sliding_frame, test_trans, diffTime, _view);
+    if (imageStatus_) sliding_frame = estimateDistance(sliding_frame, test_trans, diffTime, _view);
+    else if (rearImageStatus_) sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
 
     if(imageStatus_ && est_dist_ != 0) {
       //distance_ = (int)((2.50f - est_dist_)*frontRoi_ratio); // FOR ICRA
