@@ -190,6 +190,9 @@ LaneDetector::LaneDetector()
   corners_.resize(4);
   warpCorners_.resize(4);
 
+  test_corners_.resize(4);
+  test_warpCorners_.resize(4);
+
   e_values_.resize(3);
 
   /*** front cam ROI setting ***/
@@ -1391,7 +1394,12 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
   double diffTime;
 
   //trans = getPerspectiveTransform(fROIwarpCorners_, fROIcorners_);
-  trans = getPerspectiveTransform(warpCorners_, corners_);
+  if (imageStatus_ && TEST) {
+    trans = getPerspectiveTransform(test_warpCorners_, test_corners_);
+  }
+  else {
+    trans = getPerspectiveTransform(warpCorners_, corners_);
+  }
   _frame.copyTo(new_frame);
 
   vector<Point> left_point;
@@ -1562,9 +1570,14 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
       
       droi_points.push_back(temp_droi_point);
       
-      temp_roi_point.x = (int)corners_[roi_num[i]].x;
-      temp_roi_point.y = (int)corners_[roi_num[i]].y;
-      
+      if(imageStatus_ && TEST) {
+        temp_roi_point.x = (int)test_corners_[roi_num[i]].x;
+        temp_roi_point.y = (int)test_corners_[roi_num[i]].y;
+      }
+      else {
+        temp_roi_point.x = (int)corners_[roi_num[i]].x;
+        temp_roi_point.y = (int)corners_[roi_num[i]].y;
+      }
       roi_points.push_back(temp_roi_point);
     }
 
@@ -2101,7 +2114,7 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
 }
 
 float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {   
-  Mat new_frame, gray_frame, binary_frame, overlap_frame, sliding_frame, resized_frame, warped_frame;
+  Mat test_trans, new_frame, gray_frame, binary_frame, overlap_frame, sliding_frame, resized_frame, warped_frame;
   static struct timeval startTime, endTime;
   static bool flag = false;
   static bool lc_flag = false;
@@ -2151,12 +2164,14 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     lc_left_flag_ = false;  
     lc_center_follow_ = true;
   }
-  if(imageStatus_ && TEST) { // FOR ICRA
-    std::copy(testROIcorners_.begin(), testROIcorners_.end(), corners_.begin());
-    std::copy(testROIwarpCorners_.begin(), testROIwarpCorners_.end(), warpCorners_.begin());
-  } 
 
   Mat trans = getPerspectiveTransform(corners_, warpCorners_);
+
+  //For Estimation ROI
+  std::copy(testROIcorners_.begin(), testROIcorners_.end(), test_corners_.begin());
+  std::copy(testROIwarpCorners_.begin(), testROIwarpCorners_.end(), test_warpCorners_.begin());
+  test_trans = getPerspectiveTransform(test_corners_, test_warpCorners_);
+
   /* End apply ROI setting */
 
   if(!_frame.empty()) resize(_frame, new_frame, Size(width_, height_), 0, 0, cv::INTER_LINEAR);
@@ -2171,7 +2186,13 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
   cuda::remap(gpu_frame, gpu_remap_frame, gpu_map1, gpu_map2, INTER_LINEAR);
   gpu_remap_frame.download(new_frame);  /* apply camera matrix to new_frame */
 
-  cuda::warpPerspective(gpu_remap_frame, gpu_warped_frame, trans, Size(width_, height_)); /* ROI apply frame */
+  /* ROI apply frame */
+  if (imageStatus_ && TEST) { // For view TEST ROI
+    cuda::warpPerspective(gpu_remap_frame, gpu_warped_frame, test_trans, Size(width_, height_));
+  }
+  else { 
+    cuda::warpPerspective(gpu_remap_frame, gpu_warped_frame, trans, Size(width_, height_)); 
+  }
   gpu_warped_frame.download(warped_frame);
 
   static cv::Ptr< cv::cuda::Filter > filters;
@@ -2187,8 +2208,6 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
           }
       }
   }
-
-
 
   /* adaptive Threshold */
   adaptiveThreshold(gray_frame, binary_frame, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, Threshold_box_size_, -(Threshold_box_offset_));
@@ -2214,7 +2233,7 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       diffTime = (endTime.tv_sec - startTime.tv_sec) + (endTime.tv_usec - startTime.tv_usec)/1000000.0;
       startTime = endTime;
     }
-    sliding_frame = estimateDistance(sliding_frame, trans, diffTime, _view);
+    sliding_frame = estimateDistance(sliding_frame, test_trans, diffTime, _view);
 
     if(imageStatus_ && est_dist_ != 0) {
       //distance_ = (int)((2.50f - est_dist_)*frontRoi_ratio); // FOR ICRA
@@ -2248,12 +2267,12 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //    moveWindow("Histogram Clusters", 710, 700);
 
     if(!new_frame.empty()) {
-//      cv::circle(new_frame, center_, 10, (0,0,255), -1);
+      if(TEST) cv::circle(new_frame, center_, 10, (0,0,255), -1);
       new_frame = drawBox(new_frame);
       imshow("Window1", new_frame);
     }
     if(!sliding_frame.empty()) {
-      cv::circle(sliding_frame, warp_center_, 10, (0,0,255), -1);
+      if(TEST) cv::circle(sliding_frame, warp_center_, 10, (0,0,255), -1);
       imshow("Window2", sliding_frame);
       //imshow("Window2", warped_frame);
     }
