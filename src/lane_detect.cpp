@@ -1367,7 +1367,7 @@ float LaneDetector::lowPassFilter(double sampling_time, float est_value, float p
 
 float LaneDetector::lowPassFilter2(double sampling_time, float est_value, float prev_res){
   float res = 0;
-  float tau = 0.3f; 
+  float tau = 0.5f; 
   double st = 0.0;
 
   if (sampling_time > 1.0) st = 1.0;
@@ -1817,8 +1817,8 @@ void LaneDetector::get_steer_coef(float vel){
   else
     value = vel;
 
-  K3_ = (a2_[0] * pow(value, 2)) + (a2_[1] * pow(value, 1)) + a2_[2];
-  K4_ = (b2_[0] * pow(value, 2)) + (b2_[1] * pow(value, 1)) + b2_[2];
+//  K3_ = (a2_[0] * pow(value, 2)) + (a2_[1] * pow(value, 1)) + a2_[2];
+//  K4_ = (b2_[0] * pow(value, 2)) + (b2_[1] * pow(value, 1)) + b2_[2];
 
   if (value < 0.65f){
     K1_ = K2_ =  K_;
@@ -2103,8 +2103,9 @@ Mat LaneDetector::estimateDistance(Mat frame, Mat trans, double cycle_time, bool
   } 
 
   if (est_dist_ != 0) {
+    est_dist_ = lowPassFilter(cycle_time, est_dist_, prev_dist);
     original_est_vel = ((prev_dist - est_dist_) / cycle_time) + cur_vel_;
-    est_vel_ = lowPassFilter(cycle_time, original_est_vel, prev_est_vel);
+    est_vel_ = lowPassFilter2(cycle_time, original_est_vel, prev_est_vel);
 
     prev_est_vel = est_vel_;
     prev_dist = est_dist_; 
@@ -2146,10 +2147,10 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       }
     }
     else { // normal mode
-      std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
-      std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
-//      std::copy(rROIcorners_.begin(), rROIcorners_.end(), corners_.begin());
-//      std::copy(rROIwarpCorners_.begin(), rROIwarpCorners_.end(), warpCorners_.begin());
+//      std::copy(fROIcorners_.begin(), fROIcorners_.end(), corners_.begin());
+//      std::copy(fROIwarpCorners_.begin(), fROIwarpCorners_.end(), warpCorners_.begin());
+      std::copy(lROIcorners_.begin(), lROIcorners_.end(), corners_.begin()); // FOR ICRA
+      std::copy(lROIwarpCorners_.begin(), lROIwarpCorners_.end(), warpCorners_.begin());
       lc_right_flag_ = false; 
       lc_left_flag_ = false; 
       lc_center_follow_ = true;
@@ -2222,7 +2223,14 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
 //  sliding_frame = detect_lines_sliding_window(overlap_frame, _view);
 
   /* estimate Distance */
-  if(name_ != "" || r_name_ != "")
+  if ((((x_ > 0 && x_ < 640) && \
+          (y_ > 0 && y_ < 480) && \
+          (w_ > 0 && w_ < 640) && \
+          (h_ > 0 && h_ < 480))) || \
+      (((rx_ > 0 && rx_ < 640) && \
+        (ry_ > 0 && ry_ < 480) && \
+        (rw_ > 0 && rw_ < 640) && \
+        (rh_ > 0 && rh_ < 480)))) 
   {
     gettimeofday(&endTime, NULL);
     if (!flag){
@@ -2262,8 +2270,8 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
     moveWindow("Window1", 0, 0);
     namedWindow("Window2");
     moveWindow("Window2", 710, 0);
-//    namedWindow("Window3");
-//    moveWindow("Window3", 1340, 0);
+    namedWindow("Window3");
+    moveWindow("Window3", 1340, 0);
 //    namedWindow("Histogram Clusters");
 //    moveWindow("Histogram Clusters", 710, 700);
 
@@ -2277,9 +2285,9 @@ float LaneDetector::display_img(Mat _frame, int _delay, bool _view) {
       imshow("Window2", sliding_frame);
       //imshow("Window2", warped_frame);
     }
-//    if(!resized_frame.empty()){
-//      imshow("Window3", resized_frame);
-//    }
+    if(!resized_frame.empty()){
+      imshow("Window3", resized_frame);
+    }
 //    if(!cluster_frame.empty()){
 //      resize(cluster_frame, cluster_frame, Size(640, 480));
 //      imshow("Histogram Clusters", cluster_frame);
