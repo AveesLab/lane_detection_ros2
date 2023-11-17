@@ -969,17 +969,20 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
       if(R_flag){
         rectangle(result, \
           Rect(Rx_pos, Ry_pos, window_width, window_height), \
-          Scalar(100, 50, 255), 1);
+          //Scalar(100, 50, 255), 1);
+          Scalar(255, 50, 100), 1);
       }
       if(E_flag){
         rectangle(result, \
           Rect(Ex_pos, Ey_pos, window_width, window_height), \
-          Scalar(50, 255, 255), 1);
+          //Scalar(50, 255, 255), 1);
+          Scalar(255, 50, 100), 1);
       }
       if(E2_flag){
         rectangle(result, \
           Rect(E2x_pos, E2y_pos, window_width, window_height), \
-          Scalar(50, 255, 255), 1);
+          //Scalar(50, 255, 255), 1);
+          Scalar(255, 50, 100), 1);
       }
     }
     int nZ_y, nZ_x;
@@ -1013,9 +1016,12 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           (nZ_x >= Rx_pos) && \
           (nZ_x < (Rx_pos + window_width))) {
           if (_view) {
-            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 0;
+            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 255;
             result.at<Vec3b>(nonZero.at<Point>(index))[1] = 0;
-            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 255;
+            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 0;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 0;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[1] = 0;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 255;
           }
           good_right_inds.push_back(index);
         }
@@ -1028,9 +1034,12 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           (nZ_x >= Ex_pos) && \
           (nZ_x < (Ex_pos + window_width))) {
           if (_view) {
-            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 0;
-            result.at<Vec3b>(nonZero.at<Point>(index))[1] = 255;
-            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 255;
+            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 255;
+            result.at<Vec3b>(nonZero.at<Point>(index))[1] = 0;
+            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 0;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 0;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[1] = 255;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 255;
           }
           good_extra_inds.push_back(index);
         }
@@ -1042,9 +1051,12 @@ Mat LaneDetector::detect_lines_sliding_window(Mat _frame, bool _view) {
           (nZ_x >= E2x_pos) && \
           (nZ_x < (E2x_pos + window_width))) {
           if (_view) {
-            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 0;
-            result.at<Vec3b>(nonZero.at<Point>(index))[1] = 255;
-            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 255;
+            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 255;
+            result.at<Vec3b>(nonZero.at<Point>(index))[1] = 0;
+            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 0;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[0] = 0;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[1] = 255;
+//            result.at<Vec3b>(nonZero.at<Point>(index))[2] = 255;
           }
           good_extra2_inds.push_back(index);
         }
@@ -1470,13 +1482,13 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     int center_points_number_ = Mat(center_point).rows;
 
     if(L_flag == true){
-      polylines(_sliding_frame, &left_points_point_, &left_points_number_, 1, false, Scalar(255, 200, 200), 5);
+      polylines(_sliding_frame, &left_points_point_, &left_points_number_, 1, false, Scalar(255, 100, 100), 10);
     } 
     if(R_flag == true){
-      polylines(_sliding_frame, &right_points_point_, &right_points_number_, 1, false, Scalar(200, 200, 255), 5);
+      polylines(_sliding_frame, &right_points_point_, &right_points_number_, 1, false, Scalar(255, 100, 100), 10);
     }
     if(L_flag == true && R_flag == true){
-      polylines(_sliding_frame, &center_points_point_, &center_points_number_, 1, false, Scalar(200, 255, 200), 5);
+      polylines(_sliding_frame, &center_points_point_, &center_points_number_, 1, false, Scalar(200, 255, 200), 10);
     }
     
     perspectiveTransform(left_point_f, warped_left_point, trans);
@@ -1526,11 +1538,12 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     prev_lane_center = lane_center;
     
     if(L_flag == true) 
-      polylines(new_frame, &left_points_point, &left_points_number, 1, false, Scalar(255, 100, 100), 5);
-    if(R_flag == true)
-      polylines(new_frame, &right_points_point, &right_points_number, 1, false, Scalar(100, 100, 255), 5);
-    if(L_flag == true && R_flag == true)
-      polylines(new_frame, &center_points_point, &center_points_number, 1, false, Scalar(100, 255, 100), 5);
+      polylines(new_frame, &left_points_point, &left_points_number, 1, false, Scalar(255, 100, 100), 10);
+    if(R_flag == true && !E2_flag)
+      //polylines(new_frame, &right_points_point, &right_points_number, 1, false, Scalar(100, 100, 255), 5);
+      polylines(new_frame, &right_points_point, &right_points_number, 1, false, Scalar(255, 100, 100), 10);
+    if(L_flag == true && R_flag == true && !E2_flag)
+      polylines(new_frame, &center_points_point, &center_points_number, 1, false, Scalar(100, 255, 100), 10);
     
     left_point.clear();
     right_point.clear();
@@ -1586,7 +1599,7 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     const Point* droi_points_point = (const cv::Point*) Mat(droi_points).data;
     int droi_points_number = Mat(droi_points).rows;
 
-    polylines(_frame, &roi_points_point, &roi_points_number, 1, false, Scalar(0, 0, 255), 5);
+    //polylines(_frame, &roi_points_point, &roi_points_number, 1, false, Scalar(0, 0, 255), 5);
     polylines(_frame, &droi_points_point, &droi_points_number, 1, false, Scalar(0, 255, 0), 5);
 
     string TEXT = "ROI";
@@ -1626,8 +1639,8 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     const Point* lc_points_point_ = (const cv::Point*) Mat(lc_point).data;
     int lc_points_number_ = Mat(lc_point).rows;
 
-    polylines(_sliding_frame, &extra_points_point_, &extra_points_number_, 1, false, Scalar(0, 255, 255), 5);
-    polylines(_sliding_frame, &center2_points_point_, &center2_points_number_, 1, false, Scalar(200, 255, 200), 5);
+    polylines(_sliding_frame, &extra_points_point_, &extra_points_number_, 1, false, Scalar(255, 100, 100), 10);
+    polylines(_sliding_frame, &center2_points_point_, &center2_points_number_, 1, false, Scalar(200, 255, 200), 10);
     polylines(_sliding_frame, &lc_points_point_, &lc_points_number_, 1, false, Scalar(255, 0, 255), 5);
     
     perspectiveTransform(extra_point_f, warped_extra_point, trans);
@@ -1681,9 +1694,10 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     prev_lane_center2 = lane_center2;
     prev_lane_lc = lane_lc;
     
-    polylines(new_frame, &extra_points_point, &extra_points_number, 1, false, Scalar(0, 255, 255), 5);
-    polylines(new_frame, &center2_points_point, &center2_points_number, 1, false, Scalar(100, 255,100), 5);
-    polylines(new_frame, &lc_points_point, &lc_points_number, 1, false, Scalar(255, 0, 255), 5);
+    //polylines(new_frame, &extra_points_point, &extra_points_number, 1, false, Scalar(0, 255, 255), 5);
+    polylines(new_frame, &extra_points_point, &extra_points_number, 1, false, Scalar(255, 100, 100), 10);
+    polylines(new_frame, &center2_points_point, &center2_points_number, 1, false, Scalar(100, 255,100), 10);
+    polylines(new_frame, &lc_points_point, &lc_points_number, 1, false, Scalar(255, 0, 255), 10);
     
     extra_point.clear();
     center2_point.clear();
@@ -1720,9 +1734,9 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     const Point* lc2_points_point_ = (const cv::Point*) Mat(lc2_point).data;
     int lc2_points_number_ = Mat(lc2_point).rows;
 
-    polylines(_sliding_frame, &extra2_points_point_, &extra2_points_number_, 1, false, Scalar(0, 255, 255), 5);
-    polylines(_sliding_frame, &center3_points_point_, &center3_points_number_, 1, false, Scalar(200, 255, 200), 5);
-    polylines(_sliding_frame, &lc2_points_point_, &lc2_points_number_, 1, false, Scalar(255, 0, 255), 5);
+    polylines(_sliding_frame, &extra2_points_point_, &extra2_points_number_, 1, false, Scalar(255, 100, 100), 10);
+    polylines(_sliding_frame, &center3_points_point_, &center3_points_number_, 1, false, Scalar(200, 255, 200), 10);
+    polylines(_sliding_frame, &lc2_points_point_, &lc2_points_number_, 1, false, Scalar(255, 0, 255), 10);
     
     perspectiveTransform(extra2_point_f, warped_extra2_point, trans);
     perspectiveTransform(center3_point_f, warped_center3_point, trans);
@@ -1740,7 +1754,7 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
       temp_lc2_point.x = (int)warped_lc2_point[i].x;
       temp_lc2_point.y = (int)warped_lc2_point[i].y;
 
-      extra_points.push_back(temp_extra2_point);
+      extra2_points.push_back(temp_extra2_point);
       center3_points.push_back(temp_center3_point);
       lc2_points.push_back(temp_lc2_point);
     }
@@ -1775,9 +1789,10 @@ Mat LaneDetector::draw_lane(Mat _sliding_frame, Mat _frame) {
     prev_lane_center3 = lane_center3;
     prev_lane_lc2 = lane_lc2;
     
-    polylines(new_frame, &extra2_points_point, &extra2_points_number, 1, false, Scalar(0, 255, 255), 5);
-    polylines(new_frame, &center3_points_point, &center3_points_number, 1, false, Scalar(100, 255,100), 5);
-    polylines(new_frame, &lc2_points_point, &lc2_points_number, 1, false, Scalar(255, 0, 255), 5);
+    //polylines(new_frame, &extra2_points_point, &extra2_points_number, 1, false, Scalar(0, 255, 255), 5);
+    polylines(new_frame, &extra2_points_point, &extra2_points_number, 1, false, Scalar(255, 100, 100), 10);
+    polylines(new_frame, &center3_points_point, &center3_points_number, 1, false, Scalar(100, 255,100), 10);
+    polylines(new_frame, &lc2_points_point, &lc2_points_number, 1, false, Scalar(255, 0, 255), 10);
     
     extra2_point.clear();
     center3_point.clear();
